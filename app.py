@@ -55,8 +55,8 @@ elif menu == "➕ Movimentos (Entrada/Saída)":
         botao_submeter = st.form_submit_button("Confirmar Movimento")
         
     if botao_submeter:
-        if not codigo or not descricao:
-            st.error("Por favor, preencha pelo menos o Código e a Descrição.")
+        if not descricao:
+            st.error("Por favor, preencha pelo menos a Descrição.")
         else:
             # Verificar se o produto já existe no Excel
             idx = df_stock[df_stock["Código"].astype(str) == str(codigo)].index
