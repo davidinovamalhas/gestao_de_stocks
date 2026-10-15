@@ -50,8 +50,8 @@
     
     <!-- Barra de Separadores -->
     <div class="tabs">
-        <button class="tab-button active" onclick="mudarSeparador('listagem')">📋 Listagem de Stock</button>
-        <button class="tab-button" onclick="mudarSeparador('movimentos')">🔄 Movimentos (Entrada/Saída)</button>
+        <button id="btn-listagem" class="tab-button active" onclick="mudarSeparador('listagem')">📋 Listagem de Stock</button>
+        <button id="btn-movimentos" class="tab-button" onclick="mudarSeparador('movimentos')">🔄 Movimentos (Entrada/Saída)</button>
     </div>
 
     <!-- SEPARADOR 1: LISTAGEM DE STOCKS -->
@@ -135,19 +135,17 @@
     const _supabase = supabaseJS.createClient(SUPABASE_URL, SUPABASE_KEY);
     let cacheStock = [];
 
-    // Função para gerir a navegação entre separadores
+    // Correção na navegação entre separadores
     function mudarSeparador(idSeparador) {
-        // Remove a classe ativa de todos os botões e conteúdos
         document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-        // Adiciona a classe ativa ao separador clicado
         if(idSeparador === 'listagem') {
-            document.querySelectorAll('.tab-button')[0].classList.add('active');
+            document.getElementById('btn-listagem').classList.add('active');
             document.getElementById('separador-listagem').classList.add('active');
-            carregarDados(); // Atualiza a tabela sempre que clica no separador de listagem
+            carregarDados(); 
         } else {
-            document.querySelectorAll('.tab-button')[1].classList.add('active');
+            document.getElementById('btn-movimentos').classList.add('active');
             document.getElementById('separador-movimentos').classList.add('active');
         }
     }
@@ -188,7 +186,6 @@
                 </tr>`;
             
             cacheStock.forEach(item => {
-                // Se o stock for 0, adiciona a classe css 'stock-zero'
                 let classeLinha = item.stock_atual === 0 ? 'class="stock-zero"' : '';
                 let textoStock = item.stock_atual === 0 ? `${item.stock_atual} <span class="badge-zero">ESGOTADO</span>` : item.stock_atual;
 
@@ -206,7 +203,14 @@
             tabelaDiv.innerHTML = htmlTable;
         }
 
-        // Atualiza a lista dropdown do outro separador
         selectExistente.innerHTML = '';
         cacheStock.forEach(item => {
             let opt = document.createElement('option');
+            opt.value = item.artigo;
+            opt.innerHTML = item.artigo;
+            selectExistente.appendChild(opt);
+        });
+    }
+
+    async function confirmarMovimento() {
+        const tipoArtigo = document.getElementById('tipoArtigo').value;
