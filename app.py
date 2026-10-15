@@ -11,7 +11,7 @@ def carregar_dados():
         return pd.read_excel(EXCEL_FILE)
     else:
         # Se o ficheiro não existir, cria um modelo com as suas colunas
-        columns = ["Código", "Descrição", "Und", "Fornecedor", "Observações", "Armazém", "Stock atual", "Preço"]
+        columns = ["Artigo", "Und", "Fornecedor", "Observações", "Armazém", "Stock atual", "Preço"]
         return pd.DataFrame(columns=columns)
 
 # Função para guardar os dados no Excel
@@ -42,8 +42,7 @@ elif menu == "➕ Movimentos (Entrada/Saída)":
     
     # Formulário para introduzir dados
     with st.form("form_movimento", clear_on_submit=True):
-        codigo = st.text_input("Código do Produto")
-        descricao = st.text_input("Descrição / Nome")
+        artigo = st.text_input("Artigo / Nome")
         und = st.selectbox("Unidade (Und)", ["Un", "Kg", "Cx", "Ltr"])
         fornecedor = st.text_input("Fornecedor")
         armazem = st.text_input("Armazém / Localização")
@@ -81,7 +80,7 @@ elif menu == "➕ Movimentos (Entrada/Saída)":
                     st.error("Não pode dar saída de um produto que não existe no stock!")
                 else:
                     nova_linha = {
-                        "Código": codigo, "Descrição": descricao, "Und": und,
+                        "Artigo": artigo, "Und": und,
                         "Fornecedor": fornecedor, "Observações": observacoes,
                         "Armazém": armazem, "Stock atual": quantidade, "Preço": preco if preco > 0 else None
                     }
