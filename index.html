@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Stock HTML</title>
+    <title>Gestão de Stock com Supabase</title>
+    <!-- Biblioteca oficial do Supabase -->
+    <script src="https://jsdelivr.net"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f6f9; color: #333; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -11,8 +13,8 @@
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button { background-color: #3498db; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
-        button:hover { background-color: #2980b9; }
+        button { background-color: #2ecc71; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
+        button:hover { background-color: #27ae60; }
         .radio-group { display: flex; gap: 20px; margin: 10px 0; }
         .radio-group label { font-weight: normal; display: inline; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
@@ -25,9 +27,8 @@
 <body>
 
 <div class="container">
-    <h1>📦 Sistema de Gestão de Stocks</h1>
+    <h1>📦 Gestão de Stocks (Supabase)</h1>
     
-    <!-- SECÇÃO DE MOVIMENTOS -->
     <h2>➕ Registar Movimento (Entrada/Saída)</h2>
     <div class="form-group">
         <label for="tipoArtigo">O artigo já existe?</label>
@@ -90,60 +91,62 @@
 
     <button onclick="confirmarMovimento()">Confirmar Movimento</button>
 
-    <!-- SECÇÃO DE LISTAGEM -->
     <h2>📋 Listagem de Stock Atual</h2>
-    <div id="tabelaStock">
-        <!-- A tabela será gerada aqui pelo JavaScript -->
-    </div>
+    <div id="tabelaStock">Carregando dados da nuvem...</div>
 </div>
 
 <script>
-    // Carrega o stock guardado na memória do navegador, ou começa vazio se for a primeira vez
-    let stock = JSON.parse(localStorage.getItem('meu_stock')) || [];
+    // ⚠️ COLOQUE OS SEUS DADOS EXATOS AQUI DENTRO DAS ASPAS:
+    const SUPABASE_URL = "https://njwajakwymllffqcmlmt.supabase.co/rest/v1/";
+    const SUPABASE_KEY = "sb_publishable_6pJKQEy9vDYeowOyPus5Mw_vQVGMDF2";
+    
+    // Inicializa a ligação com a nuvem
+    const _supabase = supabaseJS.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let cacheStock = [];
 
-    function guardarNoNavegador() {
-        localStorage.setItem('meu_stock', JSON.stringify(stock));
+    async function carregarDados() {
+        let { data: artigos, error } = await _supabase
+            .from('artigos')
+            .select('*')
+            .order('artigo', { ascending: true });
+
+        if (error) {
+            console.error(error);
+            document.getElementById('tabelaStock').innerHTML = "Erro ao carregar dados do Supabase.";
+            return;
+        }
+
+        cacheStock = artigos || [];
         atualizarInterface();
     }
 
     function alternarCamposArtigo() {
         const tipo = document.getElementById('tipoArtigo').value;
-        const grupoNovo = document.getElementById('grupoArtigoNovo');
-        const grupoExistente = document.getElementById('grupoArtigoExistente');
-        const camposOpcionais = document.getElementById('camposOpcionais');
-
-        if (tipo === 'existente') {
-            grupoNovo.style.display = 'none';
-            grupoExistente.style.display = 'block';
-            camposOpcionais.style.display = 'none'; // Esconde detalhes pois o artigo já está configurado
-        } else {
-            grupoNovo.style.display = 'block';
-            grupoExistente.style.display = 'none';
-            camposOpcionais.style.display = 'block';
-        }
+        document.getElementById('grupoArtigoNovo').style.display = tipo === 'novo' ? 'block' : 'none';
+        document.getElementById('grupoArtigoExistente').style.display = tipo === 'existente' ? 'block' : 'none';
+        document.getElementById('camposOpcionais').style.display = tipo === 'novo' ? 'block' : 'none';
     }
 
     function atualizarInterface() {
         const tabelaDiv = document.getElementById('tabelaStock');
         const selectExistente = document.getElementById('artigoExistente');
         
-        // 1. Atualizar a Tabela Visual
-        if (stock.length === 0) {
-            tabelaDiv.innerHTML = '<p class="alerta-vazio">O inventário está vazio.</p>';
+        if (cacheStock.length === 0) {
+            tabelaDiv.innerHTML = '<p class="alerta-vazio">O inventário está vazio no Supabase.</p>';
         } else {
             let htmlTable = `<table>
                 <tr>
                     <th>Artigo</th><th>Und</th><th>Fornecedor</th><th>Armazém</th><th>Preço</th><th>Stock atual</th><th>Observações</th>
                 </tr>`;
             
-            stock.forEach(item => {
+            cacheStock.forEach(item => {
                 htmlTable += `<tr>
                     <td><b>${item.artigo}</b></td>
-                    <td>${item.unidade}</td>
+                    <td>${item.unidade || 'Un'}</td>
                     <td>${item.fornecedor || '-'}</td>
                     <td>${item.armazem || '-'}</td>
                     <td>${item.preco > 0 ? item.preco + '€' : '-'}</td>
-                    <td>${item.quantidade}</td>
+                    <td>${item.stock_atual}</td>
                     <td>${item.observacoes || '-'}</td>
                 </tr>`;
             });
@@ -151,53 +154,52 @@
             tabelaDiv.innerHTML = htmlTable;
         }
 
-        // 2. Atualizar a lista Dropdown de artigos existentes
         selectExistente.innerHTML = '';
-        stock.forEach(item => {
+        cacheStock.forEach(item => {
             let opt = document.createElement('option');
             opt.value = item.artigo;
             opt.innerHTML = item.artigo;
             selectExistente.appendChild(opt);
         });
-
-        alternarCamposArtigo();
     }
 
-    function confirmarMovimento() {
+    async function confirmarMovimento() {
         const tipoArtigo = document.getElementById('tipoArtigo').value;
         const tipoMovimento = document.querySelector('input[name="movimento"]:checked').value;
         const qtdInput = parseInt(document.getElementById('quantidade').value);
         
-        let nomeArtigo = "";
-        
-        if (tipoArtigo === 'novo') {
-            nomeArtigo = document.getElementById('artigoNovo').value.trim();
-        } else {
-            nomeArtigo = document.getElementById('artigoExistente').value;
-        }
+        let nomeArtigo = tipoArtigo === 'novo' ? 
+            document.getElementById('artigoNovo').value.trim() : 
+            document.getElementById('artigoExistente').value;
 
         if (!nomeArtigo) {
             alert("Por favor, indique o nome do artigo.");
             return;
         }
 
-        // Procura se o artigo já existe na lista
-        let artigoEncontrado = stock.find(item => item.artigo.toLowerCase() === nomeArtigo.toLowerCase());
+        let artigoEncontrado = cacheStock.find(item => item.artigo.toLowerCase() === nomeArtigo.toLowerCase());
 
         if (artigoEncontrado) {
+            let novoStock = artigoEncontrado.stock_atual;
             if (tipoMovimento === 'entrada') {
-                artigoEncontrado.quantidade += qtdInput;
-                alert("Entrada registada com sucesso!");
+                novoStock += qtdInput;
             } else {
-                if (artigoEncontrado.quantidade < qtdInput) {
-                    alert(`Erro: Stock insuficiente! Apenas tem ${artigoEncontrado.quantidade} em stock.`);
+                if (artigoEncontrado.stock_atual < qtdInput) {
+                    alert(`Erro: Stock insuficiente! Tem apenas ${artigoEncontrado.stock_atual}.`);
                     return;
                 }
-                artigoEncontrado.quantidade -= qtdInput;
-                alert("Saída registada com sucesso!");
+                novoStock -= qtdInput;
             }
+
+            const { error } = await _supabase
+                .from('artigos')
+                .update({ stock_atual: novoStock })
+                .eq('id', artigoEncontrado.id);
+
+            if (!error) alert("Stock atualizado na nuvem!");
+            else alert("Erro: " + error.message);
+
         } else {
-            // Se for um artigo totalmente novo
             if (tipoMovimento === 'saida') {
                 alert("Não pode dar saída de um artigo que não existe!");
                 return;
@@ -210,13 +212,17 @@
                 armazem: document.getElementById('armazem').value,
                 preco: parseFloat(document.getElementById('preco').value) || 0,
                 observacoes: document.getElementById('observacoes').value,
-                quantidade: qtdInput
+                stock_atual: qtdInput
             };
-            stock.push(novoItem);
-            alert("Novo artigo registado com sucesso!");
+
+            const { error } = await _supabase
+                .from('artigos')
+                .insert([novoItem]);
+
+            if (!error) alert("Novo artigo gravado com sucesso!");
+            else alert("Erro: " + error.message);
         }
 
-        // Limpar os campos de texto do formulário
         document.getElementById('artigoNovo').value = "";
         document.getElementById('fornecedor').value = "";
         document.getElementById('armazem').value = "";
@@ -224,11 +230,12 @@
         document.getElementById('observacoes').value = "";
         document.getElementById('quantidade').value = "1";
 
-        guardarNoNavegador();
+        carregarDados();
     }
 
-    // Executa automaticamente quando o ecrã abre
-    atualizarInterface();
+    // Inicialização da app
+    carregarDados();
+    alternarCamposArtigo();
 </script>
 
 </body>
