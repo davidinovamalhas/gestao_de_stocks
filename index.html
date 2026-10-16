@@ -380,8 +380,14 @@
     }
 
     /* ---------- Navegação ---------- */
+    let manterArtigoMov = false;   // true quando se vem do botão "Movimento" de um artigo
     function ir(pagina, guardarHistorico = true) {
         if (!PAGINAS.includes(pagina)) pagina = 'inicio';
+        if (guardarHistorico) {
+            if (pagina === 'movimentos' && !manterArtigoMov) document.getElementById('movArtigo').value = '';
+            if (pagina === 'etiquetas') { document.getElementById('etArtigo').value = ''; etPreencher(); atualizarPreview(); }
+            manterArtigoMov = false;
+        }
         document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
         document.getElementById('pg-' + pagina).classList.add('ativa');
         if (guardarHistorico && location.hash !== '#' + pagina) location.hash = pagina;
@@ -515,14 +521,14 @@
         const sel = document.getElementById(selId);
         const antigo = sel.value;
         const lista = filtroCat(cacheStock, document.getElementById(catId).value);
-        sel.innerHTML = '';
+        sel.innerHTML = '<option value="">Artigo</option>';   // começa em branco; só aparece o artigo ao selecionar
         lista.forEach(a => {
             const o = document.createElement('option');
             o.value = String(a.id);
-            o.textContent = `${nomeCompleto(a)} (${a.unidade || 'Un'})`;
+            o.textContent = `${a.artigo} (${a.unidade || 'Un'})`;   // sem categoria na descrição
             sel.appendChild(o);
         });
-        if (antigo && lista.some(a => String(a.id) === antigo)) sel.value = antigo;
+        sel.value = (antigo && lista.some(a => String(a.id) === antigo)) ? antigo : '';
     }
 
     function preencherSelects() {
@@ -599,6 +605,7 @@
         document.getElementById('movCat').value = '';
         preencherSelectArtigos('movArtigo', 'movCat');
         document.getElementById('movArtigo').value = String(id);
+        manterArtigoMov = true;
         ir('movimentos');
     }
 
@@ -710,6 +717,7 @@
                     const dadosEtiqueta = { ...atual, stock_atual: stockDepois, fornecedor: c.fornecedor, lote: c.lote, armazem: c.localizacao };
                     document.getElementById('movQtd').value = '1';
                     document.getElementById('movLote').value = '';
+                    document.getElementById('movArtigo').value = '';
                     await carregarDados();
                     if (imprimir) {
                         imprimirEtiqueta(dadosEtiqueta, {
