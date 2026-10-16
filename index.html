@@ -9,8 +9,8 @@
 <style>
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
-    .app { max-width: 1000px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,.06); }
+    .app { width: min(100% - 24px, 1600px); max-width: 1600px; margin: 0 auto; padding: 16px 0 28px; }
+    .card { width: 100%; background: #fff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,.06); }
     h2 { margin-top: 0; color: #2c3e50; }
 
     /* Topo */
@@ -58,9 +58,26 @@
     .info-cat { font-size: 13px; color: #1e6b8f; min-height: 18px; }
 
     /* Tabelas */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; max-width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; table-layout: fixed; }
+    th, td { border: 1px solid #ddd; padding: 8px 7px; text-align: left; overflow-wrap: anywhere; vertical-align: top; }
+    td .lot-list { min-width: 0; }
+    #tabelaInventario table th:nth-child(1) { width: 22%; }
+    #tabelaInventario table th:nth-child(2), #tabelaInventario table td:nth-child(2),
+    #tabelaInventario table th:nth-child(4), #tabelaInventario table td:nth-child(4) { display: none; }
+    #tabelaInventario table th:nth-child(3) { width: 7%; }
+    #tabelaInventario table th:nth-child(4) { width: 0; }
+    #tabelaInventario table th:nth-child(5), #tabelaInventario table th:nth-child(6) { width: 12%; }
+    #tabelaInventario table th:nth-child(7) { width: 25%; }
+    #tabelaInventario table th:nth-child(8), #tabelaInventario table th:nth-child(9) { width: 10%; }
+    #tabelaListagem table th:nth-child(1) { width: 14%; }
+    #tabelaListagem table th:nth-child(2) { width: 9%; }
+    #tabelaListagem table th:nth-child(3) { width: 5%; }
+    #tabelaListagem table th:nth-child(4), #tabelaListagem table th:nth-child(5) { width: 10%; }
+    #tabelaListagem table th:nth-child(6) { width: 17%; }
+    #tabelaListagem table th:nth-child(7), #tabelaListagem table th:nth-child(8) { width: 10%; }
+    #tabelaListagem table th:nth-child(9) { width: 11%; }
+    #tabelaListagem table th:nth-child(10) { width: 14%; }
     th { background: #2c3e50; color: #fff; white-space: nowrap; }
     tr:nth-child(even) { background: #f9f9f9; }
     tr.stock-zero { background: #fadbd8 !important; color: #78281f; }
@@ -109,6 +126,21 @@
     .et-rodape svg { max-width: 100%; height: 18mm; }
 
     #areaImpressao { display: none; }
+    /* Em monitores largos, usar toda a área disponível; em telemóveis, permitir deslocação apenas quando necessário. */
+    @media (min-width: 1100px) {
+        .app { padding-left: 8px; padding-right: 8px; }
+        .card { padding: 22px 24px; }
+        .table-wrap { overflow-x: visible; }
+        #tabelaInventario table, #tabelaListagem table { font-size: 13px; }
+        #tabelaInventario th, #tabelaInventario td, #tabelaListagem th, #tabelaListagem td { padding: 8px 6px; }
+    }
+    @media (max-width: 900px) {
+        .app { width: calc(100% - 16px); padding-top: 10px; }
+        .card { padding: 16px 12px; }
+        .table-wrap { overflow-x: auto; }
+        #tabelaInventario table, #tabelaListagem table { min-width: 760px; table-layout: auto; }
+    }
+
     @media print {
         body { background: #fff; }
         .app { display: none !important; }
