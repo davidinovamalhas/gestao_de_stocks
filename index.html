@@ -214,7 +214,7 @@
                     <div class="form-group"><label for="movQtdGasta">Quantidade a gastar na encomenda</label><input type="number" id="movQtdGasta" min="0" step="any" value="1" oninput="atualizarProjecaoMovimento()"></div>
                     <div class="form-group"><label>Diferença mantida em produção</label><div id="movSobraAuto" class="stock-protegido" aria-readonly="true">Selecione um artigo<small>Calculada: sai do armazém − gasta na encomenda</small></div></div>
                 </div>
-                <div id="movProjecao" class="nota"></div>
+                <div id="movProjecao" class="nota"></div><div class="nota"><b>Regra:</b> o stock do armazém diminui pela quantidade que sai; a diferença entre saída e consumo fica em Produção.</div>
             </div>
             <div class="row">
                 <div class="form-group"><label for="movFornecedor">Fornecedor</label><input type="text" id="movFornecedor" list="listaFornecedores" maxlength="120" placeholder="Ex: Fornecedor A" autocomplete="off"></div>
@@ -930,12 +930,12 @@
         const div = document.getElementById('tabelaInventario');
         if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem artigos.</p>'; return; }
 
-        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Localização (último mov.)</th><th>Stock sistema</th><th>Lotes em stock</th><th>Contagem</th><th>Diferença</th></tr>';
+        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Localização (último mov.)</th><th>Stock armazém</th><th>Stock em Produção</th><th>Lotes em stock</th><th>Contagem</th><th>Diferença</th></tr>';
         lista.forEach(a => {
             const s = stockAteData(a);
             const v = contagens[a.id] ?? '';
             h += `<tr><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td><td>${esc(a.armazem || '-')}</td>
-                <td>${fmt(s)}</td><td>${htmlLotes(a.id)}</td>
+                <td>${fmt(s)}</td><td>${fmt(stockProducaoArtigo(a.id))} ${esc(a.unidade || 'Un')}</td><td>${htmlLotes(a.id)}</td>
                 <td><input type="number" min="0" step="any" data-id="${esc(a.id)}" data-sistema="${s}" value="${esc(v)}" oninput="onContagem(this)"></td>
                 <td class="dif" id="dif-${esc(a.id)}"></td></tr>`;
         });
@@ -1060,12 +1060,12 @@
         resumo.textContent = `${lista.length} artigo(s) apresentado(s) · ${cacheStock.length} no total · ${esgot} esgotado(s)`;
         if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem resultados.</p>'; return; }
 
-        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock atual</th><th>Lotes em stock</th><th>Últ. fornecedor</th><th>Últ. lote</th><th>Últ. localização</th><th>Observações</th></tr>';
+        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock armazém</th><th>Stock em Produção</th><th>Lotes em stock</th><th>Últ. fornecedor</th><th>Últ. lote</th><th>Últ. localização</th><th>Observações</th></tr>';
         lista.forEach(a => {
             const s = Number(a.stock_atual) || 0, p = Number(a.preco) || 0, zero = s <= 0;
             h += `<tr ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td>
                 <td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
-                <td>${fmt(s)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td><td>${htmlLotes(a.id, 'listDataInicio', 'listDataFim')}</td>
+                <td>${fmt(s)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td><td>${fmt(stockProducaoArtigo(a.id))} ${esc(a.unidade || 'Un')}</td><td>${htmlLotes(a.id, 'listDataInicio', 'listDataFim')}</td>
                 <td>${esc(a.fornecedor || '-')}</td><td>${esc(a.lote || '-')}</td><td>${esc(a.armazem || '-')}</td><td>${esc(a.observacoes || '-')}</td></tr>`;
         });
         div.innerHTML = h + '</table></div>';
