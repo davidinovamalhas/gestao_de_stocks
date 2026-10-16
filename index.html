@@ -51,6 +51,11 @@
     .radio-group label, .check { font-weight: normal; display: inline-flex; align-items: center; gap: 6px; width: auto; }
     .radio-group input, .check input { width: auto; }
     .nota { color: #7f8c8d; font-size: 13px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 6px; }
+    .chip { border: 1px solid #b8cde0; background: #e3edf6; color: #103e62; padding: 6px 13px; border-radius: 16px; cursor: pointer; font-size: 14px; font-weight: bold; font-family: inherit; }
+    .chip:hover { background: #cfe0ef; }
+    .chip.ativo { background: #103e62; color: #fff; border-color: #103e62; }
+    .info-cat { font-size: 13px; color: #1e6b8f; min-height: 18px; }
 
     /* Tabelas */
     .table-wrap { overflow-x: auto; }
@@ -141,7 +146,10 @@
                 <div class="row">
                     <div class="form-group"><label for="artNome">Nome do artigo *</label><input type="text" id="artNome" maxlength="120" placeholder="Ex: Algodão penteado"></div>
                     <div class="form-group"><label for="artCategoria">Categoria (ex.: Fio 6, Fio 8, Fio 10)</label>
-                        <input type="text" id="artCategoria" list="listaCategorias" maxlength="60" placeholder="Escolha ou escreva uma nova" autocomplete="off"></div>
+                        <input type="text" id="artCategoria" list="listaCategorias" maxlength="60" placeholder="Escolha abaixo ou escreva uma nova" autocomplete="off" oninput="atualizarInfoCategoria()">
+                        <div class="nota" style="margin-top:6px">Categorias existentes (toque para escolher):</div>
+                        <div class="chips" id="chipsCategorias"></div>
+                        <div class="info-cat" id="infoCategoria"></div></div>
                 </div>
                 <div class="row">
                     <div class="form-group"><label for="artUnidade">Unidade</label>
@@ -157,9 +165,11 @@
             </div>
 
             <h2>Artigos existentes</h2>
+            <div class="nota">Categorias (toque para filtrar a lista):</div>
+            <div class="chips" id="chipsFiltro"></div>
             <div class="row">
                 <div><label for="pesqArtigos">Pesquisar</label><input type="search" id="pesqArtigos" placeholder="🔎 Nome ou categoria..." oninput="renderArtigos()"></div>
-                <div><label for="artFiltroCat">Categoria</label><select id="artFiltroCat" onchange="renderArtigos()"></select></div>
+                <div><label for="artFiltroCat">Categoria</label><select id="artFiltroCat" onchange="renderArtigos(); desenharChips();"></select></div>
             </div>
             <div id="tabelaArtigos"></div>
         </div>
@@ -446,6 +456,45 @@
             sel.innerHTML = html;
             if ([...sel.options].some(o => o.value === antigo)) sel.value = antigo;
         });
+        desenharChips();
+    }
+
+    function desenharChips() {
+        const cats = categoriasExistentes();
+        const atual = val('artCategoria').toLowerCase();
+        const formEl = document.getElementById('chipsCategorias');
+        formEl.innerHTML = cats.length
+            ? cats.map(c => `<button type="button" class="chip ${c.toLowerCase() === atual ? 'ativo' : ''}" data-c="${esc(c)}" onclick="escolherCategoria(this.dataset.c)">${esc(c)}</button>`).join('')
+            : '<span class="nota">Ainda não há categorias. Escreva o nome da primeira (ex.: Fio 6).</span>';
+
+        const contagem = {};
+        cacheStock.forEach(a => { const c = (a.categoria || '').trim(); if (c) contagem[c] = (contagem[c] || 0) + 1; });
+        const sel = document.getElementById('artFiltroCat').value;
+        document.getElementById('chipsFiltro').innerHTML = cats.length
+            ? cats.map(c => `<button type="button" class="chip ${sel === c ? 'ativo' : ''}" data-c="${esc(c)}" onclick="filtrarPorCategoria(this.dataset.c)">${esc(c)} (${contagem[c]})</button>`).join('')
+              + (sel ? `<button type="button" class="chip" onclick="filtrarPorCategoria('')">✕ Limpar filtro</button>` : '')
+            : '<span class="nota">Ainda não há categorias.</span>';
+    }
+
+    function escolherCategoria(c) {
+        document.getElementById('artCategoria').value = c;
+        atualizarInfoCategoria();
+    }
+
+    function filtrarPorCategoria(c) {
+        const sel = document.getElementById('artFiltroCat');
+        sel.value = (sel.value === c ? '' : c);
+        renderArtigos();
+        desenharChips();
+    }
+
+    function atualizarInfoCategoria() {
+        const d = val('artCategoria');
+        const el = document.getElementById('infoCategoria');
+        if (!d) el.textContent = 'Escolha uma categoria existente ou escreva um nome novo para a criar.';
+        else if (categoriasExistentes().some(c => c.toLowerCase() === d.toLowerCase())) el.textContent = '✔ Categoria existente.';
+        else el.textContent = `🆕 "${d}" é uma categoria nova: será criada ao guardar o artigo.`;
+        desenharChips();
     }
 
     function preencherSugestoes() {
@@ -517,6 +566,7 @@
         document.getElementById('artUnidade').value = 'Un';
         document.getElementById('artPreco').value = '0.00';
         document.getElementById('tituloFormArtigo').textContent = 'Novo artigo';
+        atualizarInfoCategoria();
     }
 
     function abrirFormArtigo() {
@@ -541,6 +591,7 @@
         document.getElementById('artPreco').value = Number(a.preco || 0).toFixed(2);
         document.getElementById('artObs').value = a.observacoes || '';
         document.getElementById('tituloFormArtigo').textContent = 'Editar artigo';
+        atualizarInfoCategoria();
         document.getElementById('painelArtigo').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -555,7 +606,11 @@
         const btn = document.getElementById('btnGuardarArtigo');
         const id = document.getElementById('artId').value;
         const nome = val('artNome');
-        const categoria = val('artCategoria');
+        const digitada = val('artCategoria');
+        // Se já existir (ignorando maiúsculas), usa a grafia existente; senão cria a categoria nova
+        const existente = categoriasExistentes().find(c => c.toLowerCase() === digitada.toLowerCase());
+        const categoria = existente || digitada;
+        const categoriaNova = !!digitada && !existente;
         if (!nome) { mostrarMensagem('Indique o nome do artigo.', 'erro'); return; }
 
         // Duplicado = mesmo nome na mesma categoria
@@ -578,12 +633,12 @@
             if (id) {
                 const { error } = await _supabase.from('artigos').update(dados).eq('id', id);
                 if (error) throw error;
-                mostrarMensagem(`Artigo "${nome}" atualizado.`);
+                mostrarMensagem(`Artigo "${nome}" atualizado${categoriaNova ? ` (nova categoria "${categoria}")` : ''}.`);
             } else {
                 dados.stock_atual = 0;
                 const { error } = await _supabase.from('artigos').insert(dados);
                 if (error) throw error;
-                mostrarMensagem(`Artigo "${nome}" criado. Registe a primeira entrada em Movimentos.`);
+                mostrarMensagem(`Artigo "${nome}" criado${categoriaNova ? ` na nova categoria "${categoria}"` : ''}. Registe a primeira entrada em Movimentos.`);
             }
             fecharFormArtigo();
             await carregarDados();
