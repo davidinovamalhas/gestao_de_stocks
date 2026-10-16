@@ -1,392 +1,683 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Stock Profissional</title>
-    <!-- Biblioteca oficial do Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f6f9; color: #333; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        h1 { color: #2c3e50; text-align: center; margin-bottom: 25px; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Stock</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
+    .app { max-width: 980px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,.06); }
+    h2 { margin-top: 0; color: #2c3e50; }
 
-        /* Separadores (Tabs) */
-        .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 25px; gap: 5px; flex-wrap: wrap; }
-        .tab-button { background: #eee; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 6px 6px 0 0; color: #555; transition: 0.2s; }
-        .tab-button:hover { background: #e0e0e0; }
-        .tab-button.active { background: #2c3e50; color: white; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+    /* Topo */
+    .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .btn-voltar { background: #2c3e50; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
+    .topbar .titulo { font-size: 20px; font-weight: bold; color: #2c3e50; }
 
-        /* Formulários */
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #444; }
-        input, select, textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: inherit; }
+    /* Menu inicial */
+    .home-header { text-align: center; margin: 10px 0 26px; }
+    .logo-box { display: inline-flex; align-items: center; justify-content: center; min-height: 110px; }
+    .logo-box img { max-height: 130px; max-width: 80%; object-fit: contain; }
+    .logo-placeholder { width: 130px; height: 110px; border: 2px dashed #bbb; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 13px; padding: 8px; }
+    .home-header h1 { margin: 10px 0 4px; color: #2c3e50; font-size: 26px; }
+    .link-discreto { background: none; border: none; color: #7f8c8d; font-size: 13px; text-decoration: underline; cursor: pointer; }
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .menu-item { background: #fff; border: none; border-radius: 12px; padding: 28px 16px; font-size: 20px; font-weight: bold; color: #2c3e50; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,.07); transition: .15s; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .menu-item:hover { transform: translateY(-3px); background: #2c3e50; color: #fff; }
+    .menu-item .ico { font-size: 40px; }
+    .menu-item small { font-weight: normal; font-size: 13px; opacity: .75; }
 
-        .btn-submit { background-color: #2ecc71; color: white; padding: 12px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
-        .btn-submit:hover { background-color: #27ae60; }
-        .btn-submit:disabled { background-color: #95a5a6; cursor: not-allowed; }
-        .radio-group { display: flex; gap: 20px; margin: 10px 0; }
-        .radio-group label { font-weight: normal; display: inline-flex; align-items: center; gap: 6px; width: auto; }
-        .radio-group input { width: auto; }
+    /* Formulários */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; color: #444; }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 15px; font-family: inherit; }
+    .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+    .btn { background: #2ecc71; color: #fff; padding: 12px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
+    .btn:hover { background: #27ae60; }
+    .btn:disabled { background: #95a5a6; cursor: not-allowed; }
+    .btn.azul { background: #2980b9; } .btn.azul:hover { background: #21618c; }
+    .btn.cinza { background: #7f8c8d; } .btn.cinza:hover { background: #626d6e; }
+    .btn.pequeno { padding: 6px 10px; font-size: 13px; }
+    .btn.full { width: 100%; }
+    .acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .radio-group { display: flex; gap: 20px; flex-wrap: wrap; }
+    .radio-group label, .check { font-weight: normal; display: inline-flex; align-items: center; gap: 6px; width: auto; }
+    .radio-group input, .check input { width: auto; }
 
-        /* Tabelas e alertas */
-        .table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; font-size: 14px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #2c3e50; color: white; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        tr.stock-zero { background-color: #fadbd8 !important; color: #78281f; }
-        .badge-zero { background-color: #e74c3c; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-        .alerta-vazio { color: #7f8c8d; text-align: center; font-style: italic; padding: 20px; }
+    /* Tabelas */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background: #2c3e50; color: #fff; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    tr.stock-zero { background: #fadbd8 !important; color: #78281f; }
+    .badge-zero { background: #e74c3c; color: #fff; padding: 2px 7px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+    .alerta-vazio { color: #7f8c8d; text-align: center; font-style: italic; padding: 20px; }
+    td input { padding: 6px; width: 100px; }
+    .dif-pos { color: #1e8449; font-weight: bold; } .dif-neg { color: #c0392b; font-weight: bold; }
 
-        /* Mensagens de feedback */
-        #mensagem { display: none; padding: 12px 15px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; }
-        #mensagem.ok { display: block; background: #d5f5e3; color: #1e8449; border: 1px solid #a9dfbf; }
-        #mensagem.erro { display: block; background: #fadbd8; color: #922b21; border: 1px solid #f1948a; }
-    </style>
+    #mensagem { display: none; padding: 12px 15px; border-radius: 6px; margin-bottom: 14px; font-weight: bold; }
+    #mensagem.ok { display: block; background: #d5f5e3; color: #1e8449; border: 1px solid #a9dfbf; }
+    #mensagem.erro { display: block; background: #fadbd8; color: #922b21; border: 1px solid #f1948a; }
+
+    .pagina { display: none; } .pagina.ativa { display: block; }
+
+    /* Pré-visualização da etiqueta */
+    .preview-wrap { background: #e5e8eb; padding: 14px; border-radius: 8px; overflow-x: auto; margin-top: 14px; }
+    .preview-wrap .etiqueta { transform-origin: top left; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+
+    /* Etiqueta (ecrã + impressão) */
+    .etiqueta { background: #fff; color: #000; border: 2px solid #000; padding: 10mm; display: flex; flex-direction: column; justify-content: space-between; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
+    .etiqueta.paisagem { width: 210mm; height: 148mm; }
+    .etiqueta.retrato  { width: 148mm; height: 210mm; }
+    .et-topo { display: flex; justify-content: space-between; align-items: center; gap: 10mm; border-bottom: 2px solid #000; padding-bottom: 4mm; }
+    .et-topo img { max-height: 22mm; max-width: 70mm; object-fit: contain; }
+    .et-data { font-size: 14pt; text-align: right; }
+    .et-artigo { font-size: 38pt; font-weight: bold; line-height: 1.1; text-align: center; word-break: break-word; margin: 4mm 0; }
+    .et-info { font-size: 16pt; display: grid; grid-template-columns: auto 1fr; gap: 2mm 6mm; }
+    .et-info b { white-space: nowrap; }
+    .et-qtd { font-size: 30pt; font-weight: bold; text-align: center; border: 2px solid #000; padding: 3mm; }
+    .et-rodape { text-align: center; }
+    .et-rodape svg { max-width: 100%; height: 22mm; }
+
+    #areaImpressao { display: none; }
+    @media print {
+        body { background: #fff; }
+        .app { display: none !important; }
+        #areaImpressao { display: block; }
+        #areaImpressao .etiqueta { border: 2px solid #000; page-break-after: always; break-after: page; }
+        #areaImpressao .etiqueta:last-child { page-break-after: auto; break-after: auto; }
+    }
+</style>
+<style id="estiloPagina"></style>
 </head>
 <body>
 
-<div class="container">
-    <h1>📦 Sistema de Gestão de Stocks</h1>
-
-    <!-- Barra de Separadores -->
-    <div class="tabs" role="tablist">
-        <button id="btn-listagem" class="tab-button active" role="tab" aria-selected="true" onclick="mudarSeparador('listagem')">📋 Listagem de Stock</button>
-        <button id="btn-movimentos" class="tab-button" role="tab" aria-selected="false" onclick="mudarSeparador('movimentos')">🔄 Movimentos (Entrada/Saída)</button>
-    </div>
-
+<div class="app">
     <div id="mensagem" role="status"></div>
 
-    <!-- SEPARADOR 1: LISTAGEM DE STOCKS -->
-    <div id="separador-listagem" class="tab-content active" role="tabpanel">
-        <h2>Visualização do Inventário</h2>
-        <div id="tabelaStock">A carregar dados da nuvem...</div>
-    </div>
-
-    <!-- SEPARADOR 2: MOVIMENTOS -->
-    <div id="separador-movimentos" class="tab-content" role="tabpanel">
-        <h2>Registar Entrada ou Saída de Artigo</h2>
-
-        <div class="form-group">
-            <label for="tipoArtigo">O artigo já existe no sistema?</label>
-            <select id="tipoArtigo" onchange="alternarCamposArtigo()">
-                <option value="novo">Não, é um artigo novo</option>
-                <option value="existente">Sim, selecionar da lista</option>
-            </select>
+    <!-- ============ MENU INICIAL ============ -->
+    <section id="pg-inicio" class="pagina ativa">
+        <div class="home-header">
+            <div class="logo-box" id="logoBox"></div>
+            <h1>Gestão de Stock</h1>
+            <button class="link-discreto" onclick="document.getElementById('ficheiroLogo').click()">Alterar logotipo neste dispositivo</button>
+            <button class="link-discreto" onclick="removerLogo()">Repor logotipo</button>
+            <input type="file" id="ficheiroLogo" accept="image/*" style="display:none" onchange="carregarLogo(this)">
         </div>
-
-        <div class="form-group" id="grupoArtigoNovo">
-            <label for="artigoNovo">Nome do Novo Artigo</label>
-            <input type="text" id="artigoNovo" placeholder="Ex: Arroz Agulha" maxlength="120">
+        <div class="menu-grid">
+            <button class="menu-item" onclick="ir('artigos')"><span class="ico">🏷️</span>Artigos<small>Criar e editar artigos</small></button>
+            <button class="menu-item" onclick="ir('movimentos')"><span class="ico">🔄</span>Movimentos<small>Entradas e saídas</small></button>
+            <button class="menu-item" onclick="ir('inventario')"><span class="ico">📋</span>Inventário<small>Contagem e acerto de stock</small></button>
+            <button class="menu-item" onclick="ir('listagens')"><span class="ico">📊</span>Listagens<small>Consultar, filtrar e exportar</small></button>
+            <button class="menu-item" onclick="ir('etiquetas')"><span class="ico">🖨️</span>Etiquetas<small>Imprimir etiquetas A5</small></button>
         </div>
+    </section>
 
-        <div class="form-group" id="grupoArtigoExistente" style="display: none;">
-            <label for="artigoExistente">Selecione o Artigo Existente</label>
-            <select id="artigoExistente"></select>
+    <!-- ============ ARTIGOS ============ -->
+    <section id="pg-artigos" class="pagina">
+        <div class="topbar"><button class="btn-voltar" onclick="ir('inicio')">← Menu</button><span class="titulo">🏷️ Artigos</span></div>
+        <div class="card">
+            <h2 id="tituloFormArtigo">Novo artigo</h2>
+            <input type="hidden" id="artId">
+            <div class="row">
+                <div class="form-group"><label for="artNome">Nome do artigo *</label><input type="text" id="artNome" maxlength="120" placeholder="Ex: Arroz Agulha"></div>
+                <div class="form-group"><label for="artUnidade">Unidade</label>
+                    <select id="artUnidade"><option>Un</option><option>Kg</option><option>Cx</option><option>Ltr</option></select></div>
+            </div>
+            <div class="row">
+                <div class="form-group"><label for="artFornecedor">Fornecedor</label><input type="text" id="artFornecedor" maxlength="120"></div>
+                <div class="form-group"><label for="artArmazem">Armazém / Localização</label><input type="text" id="artArmazem" maxlength="120"></div>
+                <div class="form-group"><label for="artPreco">Preço (€)</label><input type="number" id="artPreco" step="0.01" min="0" value="0.00"></div>
+            </div>
+            <div class="form-group" id="grupoStockInicial"><label for="artStock">Stock inicial</label><input type="number" id="artStock" min="0" step="any" value="0"></div>
+            <div class="form-group"><label for="artObs">Observações</label><textarea id="artObs" rows="2" maxlength="500"></textarea></div>
+            <div class="acoes">
+                <button class="btn" id="btnGuardarArtigo" onclick="guardarArtigo()">Guardar artigo</button>
+                <button class="btn cinza" onclick="limparFormArtigo()">Limpar / Cancelar edição</button>
+            </div>
         </div>
+        <div class="card" style="margin-top:16px">
+            <h2>Artigos existentes</h2>
+            <input type="search" id="pesqArtigos" placeholder="🔎 Pesquisar..." oninput="renderArtigos()">
+            <div id="tabelaArtigos"></div>
+        </div>
+    </section>
 
-        <div id="camposOpcionais">
+    <!-- ============ MOVIMENTOS ============ -->
+    <section id="pg-movimentos" class="pagina">
+        <div class="topbar"><button class="btn-voltar" onclick="ir('inicio')">← Menu</button><span class="titulo">🔄 Movimentos</span></div>
+        <div class="card">
+            <h2>Registar entrada ou saída</h2>
+            <div class="form-group"><label for="movArtigo">Artigo</label><select id="movArtigo"></select></div>
             <div class="form-group">
-                <label for="unidade">Unidade (Und)</label>
-                <select id="unidade">
-                    <option value="Un">Un</option>
-                    <option value="Kg">Kg</option>
-                    <option value="Cx">Cx</option>
-                    <option value="Ltr">Ltr</option>
-                </select>
+                <label>Tipo de movimento</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="movimento" value="entrada" checked> 🟢 Entrada (adicionar)</label>
+                    <label><input type="radio" name="movimento" value="saida"> 🔴 Saída (remover)</label>
+                </div>
             </div>
+            <div class="form-group"><label for="movQtd">Quantidade</label><input type="number" id="movQtd" min="0" step="any" value="1"></div>
             <div class="form-group">
-                <label for="fornecedor">Fornecedor</label>
-                <input type="text" id="fornecedor" placeholder="Ex: Fornecedor A" maxlength="120">
+                <label class="check"><input type="checkbox" id="movImprimirAuto"> Imprimir etiqueta A5 depois de confirmar</label>
             </div>
-            <div class="form-group">
-                <label for="armazem">Armazém / Localização</label>
-                <input type="text" id="armazem" placeholder="Ex: Corredor 2" maxlength="120">
+            <div class="row">
+                <div class="form-group"><label for="movOrient">Orientação da etiqueta</label>
+                    <select id="movOrient"><option value="paisagem">A5 horizontal</option><option value="retrato">A5 vertical</option></select></div>
+                <div class="form-group"><label for="movCopias">Nº de cópias</label><input type="number" id="movCopias" min="1" max="50" value="1"></div>
             </div>
-            <div class="form-group">
-                <label for="preco">Preço (Opcional)</label>
-                <input type="number" id="preco" step="0.01" min="0" value="0.00">
+            <div class="acoes">
+                <button id="btnConfirmar" class="btn" onclick="confirmarMovimento()">Confirmar lançamento</button>
+                <button class="btn azul" onclick="imprimirEtiquetaMovimento()">🖨️ Imprimir etiqueta A5</button>
             </div>
-            <div class="form-group">
-                <label for="observacoes">Observações</label>
-                <textarea id="observacoes" rows="2" placeholder="Notas adicionais..." maxlength="500"></textarea>
-            </div>
+            <p style="color:#7f8c8d;font-size:13px">O botão “Imprimir etiqueta A5” usa o artigo e a quantidade indicados acima (também sem confirmar o lançamento).</p>
         </div>
+    </section>
 
-        <div class="form-group">
-            <label>Tipo de Movimento</label>
-            <div class="radio-group">
-                <label><input type="radio" name="movimento" value="entrada" checked> 🟢 Entrada (Adicionar)</label>
-                <label><input type="radio" name="movimento" value="saida"> 🔴 Saída (Remover)</label>
+    <!-- ============ INVENTÁRIO ============ -->
+    <section id="pg-inventario" class="pagina">
+        <div class="topbar"><button class="btn-voltar" onclick="ir('inicio')">← Menu</button><span class="titulo">📋 Inventário</span></div>
+        <div class="card">
+            <h2>Contagem de inventário</h2>
+            <p>Indique a quantidade contada. Só os artigos com diferença serão ajustados.</p>
+            <input type="search" id="pesqInv" placeholder="🔎 Pesquisar..." oninput="renderInventario()">
+            <div id="tabelaInventario"></div>
+            <div class="acoes"><button class="btn" id="btnAplicarInv" onclick="aplicarInventario()">Aplicar ajustes</button>
+            <button class="btn cinza" onclick="limparContagens()">Limpar contagens</button></div>
+        </div>
+    </section>
+
+    <!-- ============ LISTAGENS ============ -->
+    <section id="pg-listagens" class="pagina">
+        <div class="topbar"><button class="btn-voltar" onclick="ir('inicio')">← Menu</button><span class="titulo">📊 Listagens</span></div>
+        <div class="card">
+            <h2>Listagem de stock</h2>
+            <div class="row">
+                <div><label for="pesqList">Pesquisar</label><input type="search" id="pesqList" placeholder="Artigo, fornecedor, armazém..." oninput="renderListagem()"></div>
+                <div><label for="filtroList">Filtro</label>
+                    <select id="filtroList" onchange="renderListagem()">
+                        <option value="todos">Todos</option><option value="esgotados">Apenas esgotados</option><option value="comstock">Apenas com stock</option>
+                    </select></div>
             </div>
+            <div id="resumoList" style="margin-top:10px;color:#555"></div>
+            <div id="tabelaListagem"></div>
+            <div class="acoes"><button class="btn azul" onclick="exportarCSV()">⬇️ Exportar CSV</button><button class="btn cinza" onclick="window.print()">🖨️ Imprimir página</button></div>
         </div>
+    </section>
 
-        <div class="form-group">
-            <label for="quantidade">Quantidade do Movimento</label>
-            <input type="number" id="quantidade" min="0" step="any" value="1">
+    <!-- ============ ETIQUETAS ============ -->
+    <section id="pg-etiquetas" class="pagina">
+        <div class="topbar"><button class="btn-voltar" onclick="ir('inicio')">← Menu</button><span class="titulo">🖨️ Etiquetas</span></div>
+        <div class="card">
+            <h2>Imprimir etiqueta A5</h2>
+            <div class="row">
+                <div class="form-group"><label for="etArtigo">Artigo</label><select id="etArtigo" onchange="atualizarPreview()"></select></div>
+                <div class="form-group"><label for="etQtd">Quantidade a mostrar (opcional)</label><input type="number" id="etQtd" min="0" step="any" placeholder="Vazio = stock atual" oninput="atualizarPreview()"></div>
+            </div>
+            <div class="row">
+                <div class="form-group"><label for="etOrient">Orientação</label>
+                    <select id="etOrient" onchange="atualizarPreview()"><option value="paisagem">A5 horizontal</option><option value="retrato">A5 vertical</option></select></div>
+                <div class="form-group"><label for="etCopias">Nº de cópias</label><input type="number" id="etCopias" min="1" max="50" value="1"></div>
+            </div>
+            <div class="acoes"><button class="btn" onclick="imprimirEtiquetaPagina()">🖨️ Imprimir</button></div>
+            <div class="preview-wrap"><div id="previewEtiqueta"></div></div>
         </div>
-
-        <button id="btnConfirmar" class="btn-submit" onclick="confirmarMovimento()">Confirmar Lançamento</button>
-    </div>
+    </section>
 </div>
 
+<!-- Área só usada na impressão -->
+<div id="areaImpressao"></div>
+
 <script>
-    // ⚠️ Use apenas a URL RAIZ do projeto (sem /rest/v1/) e a chave pública (publishable/anon)
+    // URL RAIZ do projeto + chave pública (publishable/anon)
     const SUPABASE_URL = "https://njwajakwymllffqcmlmt.supabase.co";
     const SUPABASE_KEY = "sb_publishable_6pJKQEy9vDYeowOyPus5Mw_vQVGMDF2";
-
-    // A biblioteca via CDN expõe o global "supabase"
     const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
     let cacheStock = [];
     let mensagemTimer = null;
+    const PAGINAS = ['inicio', 'artigos', 'movimentos', 'inventario', 'listagens', 'etiquetas'];
+    const LOGO_PADRAO = 'logo.png';   // coloque um ficheiro logo.png na raiz do repositório GitHub
 
     /* ---------- Utilitários ---------- */
-
-    // Escapa HTML para evitar XSS
-    function esc(valor) {
-        return String(valor ?? '').replace(/[&<>"']/g, c => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-        }[c]));
+    function esc(v) {
+        return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
-
-    function formatarNumero(n) {
-        // Evita ruído de vírgula flutuante (ex.: 0.30000000000000004)
-        return Number(Number(n).toFixed(3)).toString();
-    }
-
+    function fmt(n) { return Number(Number(n).toFixed(3)).toString(); }
     function mostrarMensagem(texto, tipo = 'ok') {
         const el = document.getElementById('mensagem');
-        el.textContent = texto;
-        el.className = tipo;
+        el.textContent = texto; el.className = tipo;
         clearTimeout(mensagemTimer);
         mensagemTimer = setTimeout(() => { el.className = ''; el.textContent = ''; }, 6000);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    function artigoPorId(id) { return cacheStock.find(a => String(a.id) === String(id)); }
+
+    /* ---------- Logotipo ---------- */
+    function logoAtual() {
+        try { return localStorage.getItem('logoStock') || LOGO_PADRAO; } catch (e) { return LOGO_PADRAO; }
+    }
+    function desenharLogo() {
+        const box = document.getElementById('logoBox');
+        box.innerHTML = '';
+        const img = new Image();
+        img.alt = 'Logotipo';
+        img.onload = () => box.appendChild(img);
+        img.onerror = () => { box.innerHTML = '<div class="logo-placeholder">Coloque aqui o seu logotipo</div>'; };
+        img.src = logoAtual();
+    }
+    function carregarLogo(input) {
+        const f = input.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                // Reduz para caber no armazenamento local
+                const max = 500, escala = Math.min(1, max / Math.max(img.width, img.height));
+                const c = document.createElement('canvas');
+                c.width = Math.round(img.width * escala); c.height = Math.round(img.height * escala);
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                try { localStorage.setItem('logoStock', c.toDataURL('image/png')); }
+                catch (err) { mostrarMensagem('Não foi possível guardar o logotipo neste dispositivo.', 'erro'); return; }
+                desenharLogo();
+                mostrarMensagem('Logotipo atualizado neste dispositivo. Para ficar em todos, grave o ficheiro logo.png no GitHub.');
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(f);
+        input.value = '';
+    }
+    function removerLogo() {
+        try { localStorage.removeItem('logoStock'); } catch (e) {}
+        desenharLogo();
     }
 
     /* ---------- Navegação ---------- */
-
-    function mudarSeparador(idSeparador) {
-        document.querySelectorAll('.tab-button').forEach(btn => {
-            btn.classList.remove('active');
-            btn.setAttribute('aria-selected', 'false');
-        });
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-        const btn = document.getElementById('btn-' + idSeparador);
-        btn.classList.add('active');
-        btn.setAttribute('aria-selected', 'true');
-        document.getElementById('separador-' + idSeparador).classList.add('active');
-
-        if (idSeparador === 'listagem') carregarDados();
+    function ir(pagina, guardarHistorico = true) {
+        if (!PAGINAS.includes(pagina)) pagina = 'inicio';
+        document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
+        document.getElementById('pg-' + pagina).classList.add('ativa');
+        if (guardarHistorico && location.hash !== '#' + pagina) location.hash = pagina;
+        window.scrollTo(0, 0);
+        if (pagina !== 'inicio') carregarDados();
     }
+    window.addEventListener('hashchange', () => ir(location.hash.replace('#', '') || 'inicio', false));
 
     /* ---------- Dados ---------- */
-
     async function carregarDados() {
-        const { data: artigos, error } = await _supabase
-            .from('artigos')
-            .select('*')
-            .order('artigo', { ascending: true });
-
+        const { data, error } = await _supabase.from('artigos').select('*').order('artigo', { ascending: true });
         if (error) {
             console.error(error);
-            document.getElementById('tabelaStock').textContent =
-                'Erro ao carregar dados: ' + (error.message || 'falha de ligação ao Supabase.');
+            mostrarMensagem('Erro ao carregar dados: ' + (error.message || 'falha de ligação ao Supabase.'), 'erro');
             return;
         }
-
-        cacheStock = artigos || [];
-        atualizarInterface();
+        cacheStock = data || [];
+        renderTudo();
     }
 
-    function alternarCamposArtigo() {
-        const tipo = document.getElementById('tipoArtigo').value;
-        document.getElementById('grupoArtigoNovo').style.display = tipo === 'novo' ? 'block' : 'none';
-        document.getElementById('grupoArtigoExistente').style.display = tipo === 'existente' ? 'block' : 'none';
-        document.getElementById('camposOpcionais').style.display = tipo === 'novo' ? 'block' : 'none';
+    function renderTudo() {
+        renderArtigos(); renderListagem(); renderInventario();
+        preencherSelects(); atualizarPreview();
     }
 
-    function atualizarInterface() {
-        const tabelaDiv = document.getElementById('tabelaStock');
-        const selectExistente = document.getElementById('artigoExistente');
-
-        if (cacheStock.length === 0) {
-            tabelaDiv.innerHTML = '<p class="alerta-vazio">O inventário está vazio na nuvem.</p>';
-        } else {
-            let html = `<div class="table-wrap"><table>
-                <tr>
-                    <th>Artigo</th><th>Und</th><th>Fornecedor</th><th>Armazém</th><th>Preço</th><th>Stock atual</th><th>Observações</th>
-                </tr>`;
-
-            cacheStock.forEach(item => {
-                const stock = Number(item.stock_atual) || 0;
-                const preco = Number(item.preco) || 0;
-                const esgotado = stock <= 0;
-
-                html += `<tr ${esgotado ? 'class="stock-zero"' : ''}>
-                    <td><b>${esc(item.artigo)}</b></td>
-                    <td>${esc(item.unidade || 'Un')}</td>
-                    <td>${esc(item.fornecedor || '-')}</td>
-                    <td>${esc(item.armazem || '-')}</td>
-                    <td>${preco > 0 ? preco.toFixed(2) + '€' : '-'}</td>
-                    <td>${formatarNumero(stock)}${esgotado ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td>
-                    <td>${esc(item.observacoes || '-')}</td>
-                </tr>`;
+    function preencherSelects() {
+        ['movArtigo', 'etArtigo'].forEach(idSel => {
+            const sel = document.getElementById(idSel);
+            const antigo = sel.value;
+            sel.innerHTML = '';
+            cacheStock.forEach(a => {
+                const o = document.createElement('option');
+                o.value = String(a.id);
+                o.textContent = `${a.artigo} (${a.unidade || 'Un'})`;
+                sel.appendChild(o);
             });
-            html += '</table></div>';
-            tabelaDiv.innerHTML = html;
-        }
-
-        // Lista de artigos existentes (o valor é o ID, não o nome)
-        const selecionado = selectExistente.value;
-        selectExistente.innerHTML = '';
-        cacheStock.forEach(item => {
-            const opt = document.createElement('option');
-            opt.value = String(item.id);
-            opt.textContent = `${item.artigo} (${item.unidade || 'Un'})`;
-            selectExistente.appendChild(opt);
+            if (antigo) sel.value = antigo;
         });
-        if (selecionado) selectExistente.value = selecionado;
     }
 
-    /* ---------- Movimentos ---------- */
+    function filtrar(lista, texto) {
+        const t = texto.trim().toLowerCase();
+        if (!t) return lista;
+        return lista.filter(a => [a.artigo, a.fornecedor, a.armazem, a.observacoes].some(v => String(v ?? '').toLowerCase().includes(t)));
+    }
 
-    function limparFormulario() {
-        document.getElementById('artigoNovo').value = '';
-        document.getElementById('unidade').value = 'Un';
-        document.getElementById('fornecedor').value = '';
-        document.getElementById('armazem').value = '';
-        document.getElementById('preco').value = '0.00';
-        document.getElementById('observacoes').value = '';
-        document.getElementById('quantidade').value = '1';
-        document.querySelector('input[name="movimento"][value="entrada"]').checked = true;
+    /* ---------- ARTIGOS ---------- */
+    function renderArtigos() {
+        const lista = filtrar(cacheStock, document.getElementById('pesqArtigos').value);
+        const div = document.getElementById('tabelaArtigos');
+        if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem artigos.</p>'; return; }
+        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Und</th><th>Fornecedor</th><th>Armazém</th><th>Preço</th><th></th></tr>';
+        lista.forEach(a => {
+            const p = Number(a.preco) || 0;
+            h += `<tr><td><b>${esc(a.artigo)}</b></td><td>${esc(a.unidade || 'Un')}</td><td>${esc(a.fornecedor || '-')}</td>
+                <td>${esc(a.armazem || '-')}</td><td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
+                <td><button class="btn pequeno azul" onclick="editarArtigo('${esc(a.id)}')">Editar</button></td></tr>`;
+        });
+        div.innerHTML = h + '</table></div>';
+    }
+
+    function limparFormArtigo() {
+        ['artId', 'artNome', 'artFornecedor', 'artArmazem', 'artObs'].forEach(i => document.getElementById(i).value = '');
+        document.getElementById('artUnidade').value = 'Un';
+        document.getElementById('artPreco').value = '0.00';
+        document.getElementById('artStock').value = '0';
+        document.getElementById('grupoStockInicial').style.display = 'block';
+        document.getElementById('tituloFormArtigo').textContent = 'Novo artigo';
+    }
+
+    function editarArtigo(id) {
+        const a = artigoPorId(id);
+        if (!a) return;
+        document.getElementById('artId').value = a.id;
+        document.getElementById('artNome').value = a.artigo || '';
+        document.getElementById('artUnidade').value = a.unidade || 'Un';
+        document.getElementById('artFornecedor').value = a.fornecedor || '';
+        document.getElementById('artArmazem').value = a.armazem || '';
+        document.getElementById('artPreco').value = Number(a.preco || 0).toFixed(2);
+        document.getElementById('artObs').value = a.observacoes || '';
+        document.getElementById('grupoStockInicial').style.display = 'none';   // o stock altera-se nos Movimentos / Inventário
+        document.getElementById('tituloFormArtigo').textContent = 'Editar artigo';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function guardarArtigo() {
+        const btn = document.getElementById('btnGuardarArtigo');
+        const id = document.getElementById('artId').value;
+        const nome = document.getElementById('artNome').value.trim().replace(/\s+/g, ' ');
+        if (!nome) { mostrarMensagem('Indique o nome do artigo.', 'erro'); return; }
+
+        const duplicado = cacheStock.some(a => String(a.id) !== String(id) && String(a.artigo).trim().toLowerCase() === nome.toLowerCase());
+        if (duplicado) { mostrarMensagem('Já existe um artigo com esse nome.', 'erro'); return; }
+
+        const preco = parseFloat(document.getElementById('artPreco').value);
+        const dados = {
+            artigo: nome,
+            unidade: document.getElementById('artUnidade').value,
+            fornecedor: document.getElementById('artFornecedor').value.trim() || null,
+            armazem: document.getElementById('artArmazem').value.trim() || null,
+            preco: Number.isFinite(preco) && preco > 0 ? preco : 0,
+            observacoes: document.getElementById('artObs').value.trim() || null
+        };
+
+        btn.disabled = true;
+        try {
+            if (id) {
+                const { error } = await _supabase.from('artigos').update(dados).eq('id', id);
+                if (error) throw error;
+                mostrarMensagem(`Artigo "${nome}" atualizado.`);
+            } else {
+                const stock = parseFloat(String(document.getElementById('artStock').value).replace(',', '.'));
+                dados.stock_atual = Number.isFinite(stock) && stock > 0 ? stock : 0;
+                const { error } = await _supabase.from('artigos').insert(dados);
+                if (error) throw error;
+                mostrarMensagem(`Artigo "${nome}" criado.`);
+            }
+            limparFormArtigo();
+            await carregarDados();
+        } catch (err) {
+            console.error(err);
+            mostrarMensagem('Erro: ' + (err.message || 'não foi possível guardar.'), 'erro');
+        } finally { btn.disabled = false; }
+    }
+
+    /* ---------- MOVIMENTOS ---------- */
+    function lerQtdMov() {
+        return parseFloat(String(document.getElementById('movQtd').value).replace(',', '.'));
     }
 
     async function confirmarMovimento() {
         const btn = document.getElementById('btnConfirmar');
-        const tipoArtigo = document.getElementById('tipoArtigo').value;
+        const id = document.getElementById('movArtigo').value;
         const movimento = document.querySelector('input[name="movimento"]:checked').value;
-        const quantidade = parseFloat(String(document.getElementById('quantidade').value).replace(',', '.'));
+        const quantidade = lerQtdMov();
 
-        // Validação da quantidade
-        if (!Number.isFinite(quantidade) || quantidade <= 0) {
-            mostrarMensagem('Indique uma quantidade válida, superior a zero.', 'erro');
-            return;
-        }
+        if (!id) { mostrarMensagem('Selecione um artigo (crie-o primeiro em "Artigos").', 'erro'); return; }
+        if (!Number.isFinite(quantidade) || quantidade <= 0) { mostrarMensagem('Indique uma quantidade válida, superior a zero.', 'erro'); return; }
 
         btn.disabled = true;
         try {
-            if (tipoArtigo === 'novo') {
-                await registarArtigoNovo(movimento, quantidade);
-            } else {
-                await registarMovimentoExistente(movimento, quantidade);
+            const MAX = 4;
+            for (let i = 0; i < MAX; i++) {
+                const { data: atual, error: eL } = await _supabase.from('artigos').select('*').eq('id', id).single();
+                if (eL) throw eL;
+
+                const stockAtual = Number(atual.stock_atual) || 0;
+                const novo = movimento === 'entrada' ? stockAtual + quantidade : stockAtual - quantidade;
+                if (novo < 0) {
+                    mostrarMensagem(`Stock insuficiente: "${atual.artigo}" tem apenas ${fmt(stockAtual)} disponível.`, 'erro');
+                    await carregarDados();
+                    return;
+                }
+
+                // Bloqueio otimista: só grava se o stock não mudou entretanto
+                const { data: upd, error: eU } = await _supabase.from('artigos')
+                    .update({ stock_atual: novo }).eq('id', id).eq('stock_atual', atual.stock_atual).select();
+                if (eU) throw eU;
+
+                if (upd && upd.length > 0) {
+                    mostrarMensagem(`${movimento === 'entrada' ? 'Entrada' : 'Saída'} registada: "${atual.artigo}" ${fmt(stockAtual)} → ${fmt(novo)}.`);
+                    const imprimir = document.getElementById('movImprimirAuto').checked;
+                    const dadosEtiqueta = { ...atual, stock_atual: novo };
+                    document.getElementById('movQtd').value = '1';
+                    await carregarDados();
+                    if (imprimir) {
+                        imprimirEtiqueta(dadosEtiqueta, {
+                            quantidade, movimento,
+                            orientacao: document.getElementById('movOrient').value,
+                            copias: document.getElementById('movCopias').value
+                        });
+                    }
+                    return;
+                }
             }
+            throw new Error('O stock foi alterado por outro utilizador. Tente novamente.');
         } catch (err) {
             console.error(err);
             mostrarMensagem('Erro: ' + (err.message || 'não foi possível gravar o movimento.'), 'erro');
-        } finally {
-            btn.disabled = false;
-        }
+        } finally { btn.disabled = false; }
     }
 
-    async function registarArtigoNovo(movimento, quantidade) {
-        const nome = document.getElementById('artigoNovo').value.trim().replace(/\s+/g, ' ');
-
-        if (!nome) {
-            mostrarMensagem('Indique o nome do novo artigo.', 'erro');
-            return;
-        }
-        if (movimento === 'saida') {
-            mostrarMensagem('Não é possível registar uma saída de um artigo novo (sem stock).', 'erro');
-            return;
-        }
-
-        // Verifica duplicados (ignorando maiúsculas/minúsculas e espaços)
-        await carregarDados();
-        const duplicado = cacheStock.some(a => String(a.artigo).trim().toLowerCase() === nome.toLowerCase());
-        if (duplicado) {
-            mostrarMensagem('Já existe um artigo com esse nome. Use "Sim, selecionar da lista".', 'erro');
-            return;
-        }
-
-        const preco = parseFloat(document.getElementById('preco').value);
-
-        const { error } = await _supabase.from('artigos').insert({
-            artigo: nome,
-            unidade: document.getElementById('unidade').value,
-            fornecedor: document.getElementById('fornecedor').value.trim() || null,
-            armazem: document.getElementById('armazem').value.trim() || null,
-            preco: Number.isFinite(preco) && preco > 0 ? preco : 0,
-            observacoes: document.getElementById('observacoes').value.trim() || null,
-            stock_atual: quantidade
+    function imprimirEtiquetaMovimento() {
+        const a = artigoPorId(document.getElementById('movArtigo').value);
+        if (!a) { mostrarMensagem('Selecione um artigo.', 'erro'); return; }
+        const q = lerQtdMov();
+        imprimirEtiqueta(a, {
+            quantidade: Number.isFinite(q) && q > 0 ? q : null,
+            movimento: document.querySelector('input[name="movimento"]:checked').value,
+            orientacao: document.getElementById('movOrient').value,
+            copias: document.getElementById('movCopias').value
         });
-
-        if (error) throw error;
-
-        mostrarMensagem(`Artigo "${nome}" criado com ${formatarNumero(quantidade)} em stock.`);
-        limparFormulario();
-        await carregarDados();
     }
 
-    async function registarMovimentoExistente(movimento, quantidade) {
-        const id = document.getElementById('artigoExistente').value;
-        if (!id) {
-            mostrarMensagem('Selecione um artigo da lista.', 'erro');
-            return;
-        }
+    /* ---------- INVENTÁRIO ---------- */
+    function renderInventario() {
+        // Preserva contagens já escritas
+        const guardadas = {};
+        document.querySelectorAll('#tabelaInventario input[data-id]').forEach(i => { if (i.value !== '') guardadas[i.dataset.id] = i.value; });
 
-        // Atualização com "bloqueio otimista": só grava se o stock não mudou entretanto.
-        // Se outro utilizador alterou o stock, repete com o valor mais recente.
-        const MAX_TENTATIVAS = 4;
-        for (let i = 0; i < MAX_TENTATIVAS; i++) {
-            const { data: atual, error: erroLeitura } = await _supabase
-                .from('artigos')
-                .select('id, artigo, stock_atual')
-                .eq('id', id)
-                .single();
-            if (erroLeitura) throw erroLeitura;
+        const lista = filtrar(cacheStock, document.getElementById('pesqInv').value);
+        const div = document.getElementById('tabelaInventario');
+        if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem artigos.</p>'; return; }
 
-            const stockAtual = Number(atual.stock_atual) || 0;
-            const novoStock = movimento === 'entrada' ? stockAtual + quantidade : stockAtual - quantidade;
-
-            if (novoStock < 0) {
-                mostrarMensagem(
-                    `Stock insuficiente: "${atual.artigo}" tem apenas ${formatarNumero(stockAtual)} disponível.`,
-                    'erro'
-                );
-                await carregarDados();
-                return;
-            }
-
-            const { data: atualizado, error: erroUpdate } = await _supabase
-                .from('artigos')
-                .update({ stock_atual: novoStock })
-                .eq('id', id)
-                .eq('stock_atual', atual.stock_atual)   // garante que ninguém alterou entretanto
-                .select();
-            if (erroUpdate) throw erroUpdate;
-
-            if (atualizado && atualizado.length > 0) {
-                mostrarMensagem(
-                    `${movimento === 'entrada' ? 'Entrada' : 'Saída'} registada: "${atual.artigo}" ` +
-                    `${formatarNumero(stockAtual)} → ${formatarNumero(novoStock)}.`
-                );
-                document.getElementById('quantidade').value = '1';
-                await carregarDados();
-                return;
-            }
-            // Nenhuma linha atualizada = conflito; tenta outra vez
-        }
-
-        throw new Error('O stock foi alterado por outro utilizador. Tente novamente.');
+        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Und</th><th>Armazém</th><th>Stock sistema</th><th>Contagem</th><th>Diferença</th></tr>';
+        lista.forEach(a => {
+            const s = Number(a.stock_atual) || 0;
+            const v = guardadas[a.id] ?? '';
+            h += `<tr><td><b>${esc(a.artigo)}</b></td><td>${esc(a.unidade || 'Un')}</td><td>${esc(a.armazem || '-')}</td>
+                <td>${fmt(s)}</td>
+                <td><input type="number" min="0" step="any" data-id="${esc(a.id)}" data-sistema="${s}" value="${esc(v)}" oninput="atualizarDif(this)"></td>
+                <td class="dif" id="dif-${esc(a.id)}"></td></tr>`;
+        });
+        div.innerHTML = h + '</table></div>';
+        div.querySelectorAll('input[data-id]').forEach(atualizarDif);
     }
+
+    function atualizarDif(inp) {
+        const cel = document.getElementById('dif-' + inp.dataset.id);
+        if (!cel) return;
+        if (inp.value === '') { cel.textContent = ''; return; }
+        const d = parseFloat(inp.value) - Number(inp.dataset.sistema);
+        if (!Number.isFinite(d)) { cel.textContent = ''; return; }
+        cel.className = 'dif ' + (d > 0 ? 'dif-pos' : d < 0 ? 'dif-neg' : '');
+        cel.textContent = (d > 0 ? '+' : '') + fmt(d);
+    }
+
+    function limparContagens() {
+        document.querySelectorAll('#tabelaInventario input[data-id]').forEach(i => { i.value = ''; atualizarDif(i); });
+    }
+
+    async function aplicarInventario() {
+        const alteracoes = [];
+        document.querySelectorAll('#tabelaInventario input[data-id]').forEach(i => {
+            if (i.value === '') return;
+            const nova = parseFloat(i.value);
+            if (Number.isFinite(nova) && nova >= 0 && nova !== Number(i.dataset.sistema)) alteracoes.push({ id: i.dataset.id, nova });
+        });
+        if (!alteracoes.length) { mostrarMensagem('Não há diferenças para ajustar.', 'erro'); return; }
+        if (!confirm(`Ajustar o stock de ${alteracoes.length} artigo(s)?`)) return;
+
+        const btn = document.getElementById('btnAplicarInv');
+        btn.disabled = true;
+        try {
+            for (const a of alteracoes) {
+                const { error } = await _supabase.from('artigos').update({ stock_atual: a.nova }).eq('id', a.id);
+                if (error) throw error;
+            }
+            mostrarMensagem(`Inventário aplicado: ${alteracoes.length} artigo(s) ajustado(s).`);
+            limparContagens();
+            await carregarDados();
+        } catch (err) {
+            console.error(err);
+            mostrarMensagem('Erro: ' + (err.message || 'não foi possível aplicar o inventário.'), 'erro');
+            await carregarDados();
+        } finally { btn.disabled = false; }
+    }
+
+    /* ---------- LISTAGENS ---------- */
+    function listaFiltradaListagem() {
+        let lista = filtrar(cacheStock, document.getElementById('pesqList').value);
+        const f = document.getElementById('filtroList').value;
+        if (f === 'esgotados') lista = lista.filter(a => (Number(a.stock_atual) || 0) <= 0);
+        if (f === 'comstock') lista = lista.filter(a => (Number(a.stock_atual) || 0) > 0);
+        return lista;
+    }
+
+    function renderListagem() {
+        const lista = listaFiltradaListagem();
+        const div = document.getElementById('tabelaListagem');
+        const esgot = cacheStock.filter(a => (Number(a.stock_atual) || 0) <= 0).length;
+        document.getElementById('resumoList').textContent = `${lista.length} artigo(s) apresentado(s) · ${cacheStock.length} no total · ${esgot} esgotado(s)`;
+        if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem resultados.</p>'; return; }
+
+        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Und</th><th>Fornecedor</th><th>Armazém</th><th>Preço</th><th>Stock atual</th><th>Observações</th></tr>';
+        lista.forEach(a => {
+            const s = Number(a.stock_atual) || 0, p = Number(a.preco) || 0, zero = s <= 0;
+            h += `<tr ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${esc(a.unidade || 'Un')}</td>
+                <td>${esc(a.fornecedor || '-')}</td><td>${esc(a.armazem || '-')}</td><td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
+                <td>${fmt(s)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td><td>${esc(a.observacoes || '-')}</td></tr>`;
+        });
+        div.innerHTML = h + '</table></div>';
+    }
+
+    function exportarCSV() {
+        const lista = listaFiltradaListagem();
+        if (!lista.length) { mostrarMensagem('Não há dados para exportar.', 'erro'); return; }
+        const cel = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+        const linhas = [['Artigo', 'Unidade', 'Fornecedor', 'Armazém', 'Preço', 'Stock atual', 'Observações'].map(cel).join(';')];
+        lista.forEach(a => linhas.push([a.artigo, a.unidade, a.fornecedor, a.armazem, a.preco, a.stock_atual, a.observacoes].map(cel).join(';')));
+        const blob = new Blob(['\ufeff' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'stock_' + new Date().toISOString().slice(0, 10) + '.csv';
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    /* ---------- ETIQUETAS ---------- */
+    function htmlEtiqueta(a, opts) {
+        const orient = opts.orientacao === 'retrato' ? 'retrato' : 'paisagem';
+        const qtd = opts.quantidade != null ? opts.quantidade : (Number(a.stock_atual) || 0);
+        const rotuloQtd = opts.movimento === 'entrada' && opts.quantidade != null ? 'ENTRADA'
+                        : opts.movimento === 'saida' && opts.quantidade != null ? 'SAÍDA' : 'QUANTIDADE';
+        const data = new Date().toLocaleDateString('pt-PT');
+        return `<div class="etiqueta ${orient}">
+            <div class="et-topo">
+                <img src="${esc(logoAtual())}" alt="" onerror="this.style.display='none'">
+                <div class="et-data">${esc(data)}</div>
+            </div>
+            <div class="et-artigo">${esc(a.artigo)}</div>
+            <div class="et-info">
+                <b>Fornecedor:</b><span>${esc(a.fornecedor || '-')}</span>
+                <b>Armazém:</b><span>${esc(a.armazem || '-')}</span>
+                ${a.observacoes ? `<b>Obs.:</b><span>${esc(a.observacoes)}</span>` : ''}
+            </div>
+            <div class="et-qtd">${rotuloQtd}: ${fmt(qtd)} ${esc(a.unidade || 'Un')}</div>
+            <div class="et-rodape"><svg class="codigo" data-codigo="${esc(a.id)}"></svg></div>
+        </div>`;
+    }
+
+    function desenharCodigos(raiz) {
+        raiz.querySelectorAll('svg.codigo').forEach(svg => {
+            try {
+                JsBarcode(svg, String(svg.dataset.codigo), { format: 'CODE128', displayValue: true, fontSize: 18, height: 60, margin: 0 });
+            } catch (e) { console.warn('Código de barras indisponível', e); }
+        });
+    }
+
+    function atualizarPreview() {
+        const alvo = document.getElementById('previewEtiqueta');
+        const a = artigoPorId(document.getElementById('etArtigo').value);
+        if (!a) { alvo.innerHTML = '<p class="alerta-vazio">Selecione um artigo.</p>'; return; }
+        const q = parseFloat(String(document.getElementById('etQtd').value).replace(',', '.'));
+        alvo.innerHTML = htmlEtiqueta(a, {
+            orientacao: document.getElementById('etOrient').value,
+            quantidade: Number.isFinite(q) ? q : null
+        });
+        desenharCodigos(alvo);
+        // Reduz a pré-visualização para caber no ecrã
+        const et = alvo.firstElementChild;
+        const largura = alvo.parentElement.clientWidth - 28;
+        const escala = Math.min(1, largura / et.offsetWidth);
+        et.style.transform = `scale(${escala})`;
+        alvo.style.height = (et.offsetHeight * escala) + 'px';
+        alvo.style.width = (et.offsetWidth * escala) + 'px';
+        alvo.style.margin = '0 auto';
+    }
+    window.addEventListener('resize', () => { if (document.getElementById('pg-etiquetas').classList.contains('ativa')) atualizarPreview(); });
+
+    function imprimirEtiquetaPagina() {
+        const a = artigoPorId(document.getElementById('etArtigo').value);
+        if (!a) { mostrarMensagem('Selecione um artigo.', 'erro'); return; }
+        const q = parseFloat(String(document.getElementById('etQtd').value).replace(',', '.'));
+        imprimirEtiqueta(a, {
+            quantidade: Number.isFinite(q) ? q : null,
+            orientacao: document.getElementById('etOrient').value,
+            copias: document.getElementById('etCopias').value
+        });
+    }
+
+    function imprimirEtiqueta(artigo, opts) {
+        const copias = Math.max(1, Math.min(50, parseInt(opts.copias, 10) || 1));
+        const orient = opts.orientacao === 'retrato' ? 'portrait' : 'landscape';
+        document.getElementById('estiloPagina').textContent = `@page { size: A5 ${orient}; margin: 0; }`;
+
+        const area = document.getElementById('areaImpressao');
+        area.innerHTML = Array.from({ length: copias }, () => htmlEtiqueta(artigo, opts)).join('');
+        desenharCodigos(area);
+
+        // Pequena espera para o logotipo/código de barras ficarem desenhados
+        setTimeout(() => window.print(), 350);
+    }
+    window.addEventListener('afterprint', () => { document.getElementById('areaImpressao').innerHTML = ''; });
 
     /* ---------- Arranque ---------- */
-    alternarCamposArtigo();
-    carregarDados();
+    desenharLogo();
+    ir(location.hash.replace('#', '') || 'inicio', false);
 </script>
-
 </body>
 </html>
