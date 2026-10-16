@@ -79,6 +79,9 @@
     .date-filter { background:#f7f9fb; border:1px solid #dde3ea; border-radius:8px; padding:12px; margin:10px 0 14px; }
     .lot-list { display:flex; flex-wrap:wrap; gap:5px; min-width:180px; }
     .lot-list .tag { background:#fff4d6; color:#7d5b00; border-color:#e7c96b; }
+    .camada-box { display:none; background:#eef7ee; border:1px solid #b7d9b7; border-radius:8px; padding:12px; margin:4px 0 16px; }
+    .camada-box.visible { display:block; }
+    .camada-box select { border-color:#8bc48b; }
 
     #mensagem { display: none; padding: 12px 15px; border-radius: 6px; margin-bottom: 14px; font-weight: bold; }
     #mensagem.ok { display: block; background: #d5f5e3; color: #1e8449; border: 1px solid #a9dfbf; }
@@ -202,13 +205,13 @@
                         <label><input type="radio" name="movimento" value="producao" onchange="atualizarPainelMovimento()"> 🟣 Saída para produção</label>
                     </div>
                 </div>
-                <div class="form-group"><label for="movQtd">Quantidade a enviar</label><input type="number" id="movQtd" min="0" step="any" value="1" oninput="atualizarProjecaoMovimento()"></div>
+                <div class="form-group"><label for="movQtd">Quantidade a gastar na encomenda</label><input type="number" id="movQtd" min="0" step="any" value="1" oninput="atualizarProjecaoMovimento()"></div>
                 <div class="form-group"><label>Stock disponível (orientação)</label><div id="movStockAtual" class="stock-protegido" aria-readonly="true">Selecione um artigo<small>Campo protegido — não editável</small></div></div>
             </div>
             <div class="production-box" id="painelProducao">
                 <div class="row">
                     <div class="form-group"><label for="movEncomenda">Encomenda / ordem de produção</label><input type="text" id="movEncomenda" maxlength="80" placeholder="Ex.: ENC-2026-014"></div>
-                    <div class="form-group"><label for="movSobra">Previsão de sobra no fim da encomenda</label><input type="number" id="movSobra" min="0" step="any" value="0" oninput="atualizarProjecaoMovimento()"></div>
+                    <div class="form-group"><label>Previsão automática de sobra</label><div id="movSobraAuto" class="stock-protegido" aria-readonly="true">Selecione um artigo<small>Calculada automaticamente: stock disponível − quantidade a gastar</small></div></div>
                 </div>
                 <div id="movProjecao" class="nota"></div>
             </div>
@@ -216,6 +219,11 @@
                 <div class="form-group"><label for="movFornecedor">Fornecedor</label><input type="text" id="movFornecedor" list="listaFornecedores" maxlength="120" placeholder="Ex: Fornecedor A" autocomplete="off"></div>
                 <div class="form-group"><label for="movLote">Lote</label><input type="text" id="movLote" maxlength="60" placeholder="Ex: L2410-03"></div>
                 <div class="form-group"><label for="movLocal">Localização</label><input type="text" id="movLocal" list="listaLocalizacoes" maxlength="120" placeholder="Ex: Corredor 2 · Prateleira B" autocomplete="off"></div>
+            </div>
+            <div class="camada-box" id="movCamadaBox">
+                <label for="movCamada">Stock por fornecedor, lote e localização</label>
+                <select id="movCamada" onchange="selecionarCamadaMovimento()"><option value="">Selecione a origem do stock</option></select>
+                <div class="nota" style="margin-top:6px">Nas saídas, escolha a camada de stock. A quantidade disponível é controlada por esta combinação.</div>
             </div>
             <div class="form-group">
                 <label class="check"><input type="checkbox" id="movImprimirAuto"> Imprimir etiqueta A5 depois de confirmar</label>
@@ -229,7 +237,7 @@
                 <button id="btnConfirmar" class="btn" onclick="confirmarMovimento()">Confirmar lançamento</button>
                 <button class="btn azul" onclick="imprimirEtiquetaMovimento()">🖨️ Imprimir etiqueta A5</button>
             </div>
-            <p class="nota">Numa saída para produção, a quantidade sai do armazém e a sobra prevista é apresentada como stock projetado após a conclusão da encomenda. O stock disponível é sempre mostrado num campo protegido.</p>
+            <p class="nota">Numa saída para produção, indique apenas a quantidade que vai gastar na encomenda. A previsão de sobra e o stock projetado são calculados automaticamente: stock disponível − quantidade a gastar.</p>
         </div>
     </section>
 
@@ -722,22 +730,74 @@
         const ls = lotesDoArtigo(id, ini, fim);
         return ls.length ? '<div class="lot-list">' + ls.map(x => `<span class="tag">${esc(x.lote)}: ${fmt(x.quantidade)}</span>`).join('') + '</div>' : '<span class="nota">Sem lotes registados</span>';
     }
+    function chaveCamada(fornecedor, lote, localizacao) {
+        return [fornecedor, lote, localizacao].map(v => String(v || '').trim().toLowerCase()).join('||');
+    }
+    function camadasStockArtigo(id) {
+        const mapa = new Map();
+        cacheMov.filter(m => String(m.artigo_id) === String(id)).slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at)).forEach(m => {
+            const fornecedor = String(m.fornecedor || '').trim(), lote = String(m.lote || '').trim(), localizacao = String(m.localizacao || '').trim();
+            const chave = chaveCamada(fornecedor, lote, localizacao);
+            if (!mapa.has(chave)) mapa.set(chave, { chave, fornecedor, lote, localizacao, quantidade: 0 });
+            const camada = mapa.get(chave), q = Number(m.quantidade) || 0;
+            if (m.tipo === 'entrada') camada.quantidade += q;
+            else if (m.tipo === 'saida' || m.tipo === 'producao') camada.quantidade -= q;
+        });
+        return [...mapa.values()].filter(c => c.quantidade > 0.0000001).sort((a,b) => (a.lote || '').localeCompare(b.lote || '', 'pt-PT', {numeric:true}));
+    }
+    function atualizarCamadasMovimento() {
+        const box = document.getElementById('movCamadaBox'), sel = document.getElementById('movCamada'), a = artigoPorId(document.getElementById('movArtigo').value);
+        const saida = tipoMov() === 'saida' || tipoMov() === 'producao';
+        if (!box || !sel) return;
+        box.classList.toggle('visible', saida && !!a);
+        if (!saida || !a) { sel.innerHTML = '<option value="">Selecione a origem do stock</option>'; return; }
+        const anterior = sel.value, camadas = camadasStockArtigo(a.id);
+        sel.innerHTML = '<option value="">Selecione a origem do stock</option>' + camadas.map(c => `<option value="${esc(c.chave)}">${esc(c.fornecedor || 'Sem fornecedor')} · Lote: ${esc(c.lote || 'Sem lote')} · ${esc(c.localizacao || 'Sem localização')} — ${fmt(c.quantidade)} ${esc(a.unidade || 'Un')}</option>`).join('');
+        if (camadas.some(c => c.chave === anterior)) sel.value = anterior;
+        if (!sel.value && camadas.length === 1) sel.value = camadas[0].chave;
+        selecionarCamadaMovimento(false);
+    }
+    function selecionarCamadaMovimento(limpar = true) {
+        const a = artigoPorId(document.getElementById('movArtigo').value), sel = document.getElementById('movCamada');
+        if (!a || !sel || !sel.value) return;
+        const c = camadasStockArtigo(a.id).find(x => x.chave === sel.value);
+        if (!c) return;
+        document.getElementById('movFornecedor').value = c.fornecedor;
+        document.getElementById('movLote').value = c.lote;
+        document.getElementById('movLocal').value = c.localizacao;
+        const q = lerQtdMov();
+        if (limpar && Number.isFinite(q) && q > c.quantidade) document.getElementById('movQtd').value = c.quantidade;
+        atualizarProjecaoMovimento();
+    }
+    function camadaMovimentoAtual(id) {
+        const sel = document.getElementById('movCamada'), camadas = camadasStockArtigo(id);
+        return sel && sel.value ? camadas.find(c => c.chave === sel.value) : null;
+    }
     function atualizarPainelMovimento() {
         const prod = tipoMov() === 'producao';
         document.getElementById('painelProducao').classList.toggle('visible', prod);
+        atualizarCamadasMovimento();
         atualizarProjecaoMovimento();
     }
     function atualizarProjecaoMovimento() {
-        const el = document.getElementById('movProjecao'), a = artigoPorId(document.getElementById('movArtigo').value);
-        const q = lerQtdMov(), sobra = parseFloat(String(document.getElementById('movSobra').value).replace(',', '.')) || 0;
-        if (!el || tipoMov() !== 'producao' || !a || !Number.isFinite(q)) return;
+        const el = document.getElementById('movProjecao'), sobraEl = document.getElementById('movSobraAuto');
+        const a = artigoPorId(document.getElementById('movArtigo').value), q = lerQtdMov();
+        if (!el || tipoMov() !== 'producao') return;
+        if (!a || !Number.isFinite(q)) {
+            if (sobraEl) sobraEl.innerHTML = 'Selecione um artigo<small>Calculada automaticamente: stock disponível − quantidade a gastar</small>';
+            el.textContent = '';
+            return;
+        }
         const stock = Number(a.stock_atual) || 0;
-        el.innerHTML = `Stock após saída do armazém: <b>${fmt(stock - q)} ${esc(a.unidade || 'Un')}</b> · Stock projetado após a encomenda (com sobra): <b>${fmt(stock - q + sobra)} ${esc(a.unidade || 'Un')}</b>`;
+        const sobra = stock - q;
+        if (sobraEl) sobraEl.innerHTML = `${fmt(sobra)} ${esc(a.unidade || 'Un')}<small>Campo protegido · calculada automaticamente</small>`;
+        el.innerHTML = `Stock projetado após a encomenda: <b>${fmt(sobra)} ${esc(a.unidade || 'Un')}</b> · A saída registada será de <b>${fmt(q)} ${esc(a.unidade || 'Un')}</b>`;
     }
     function atualizarStockMovimento() {
         const el = document.getElementById('movStockAtual'), a = artigoPorId(document.getElementById('movArtigo').value);
         if (!a) { el.innerHTML = 'Selecione um artigo<small>Campo protegido — não editável</small>'; return; }
-        el.innerHTML = `${fmt(Number(a.stock_atual)||0)} ${esc(a.unidade||'Un')}<small>${esc(nomeCompleto(a))} · protegido</small>`;
+        el.innerHTML = `${fmt(Number(a.stock_atual)||0)} ${esc(a.unidade||'Un')}<small>${esc(a.artigo || '')} · campo protegido</small>`;
+        atualizarCamadasMovimento();
         atualizarProjecaoMovimento();
     }
 
@@ -759,6 +819,11 @@
 
         if (!id) { mostrarMensagem('Selecione um artigo (crie-o primeiro em "Artigos").', 'erro'); return; }
         if (!Number.isFinite(quantidade) || quantidade <= 0) { mostrarMensagem('Indique uma quantidade válida, superior a zero.', 'erro'); return; }
+        if (tipo === 'saida' || tipo === 'producao') {
+            const camadas = camadasStockArtigo(id), camada = camadaMovimentoAtual(id);
+            if (camadas.length && !camada) { mostrarMensagem('Selecione o fornecedor, lote e localização de origem do stock.', 'erro'); return; }
+            if (camada && quantidade > camada.quantidade + 0.0000001) { mostrarMensagem(`A camada selecionada tem apenas ${fmt(camada.quantidade)} disponível.`, 'erro'); return; }
+        }
 
         btn.disabled = true;
         try {
@@ -789,7 +854,7 @@
                 if (eU) throw eU;
 
                 if (upd && upd.length > 0) {
-                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), previsao_sobra: Number(document.getElementById('movSobra').value) || 0, tipo_operacao: 'producao' } : {};
+                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), previsao_sobra: stockDepois, tipo_operacao: 'producao' } : {};
                     let registo = { artigo_id: String(id), artigo: atual.artigo, categoria: atual.categoria || null,
                         tipo: tipo === 'producao' ? 'saida' : tipo, quantidade, stock_antes: stockAntes, stock_depois: stockDepois,
                         fornecedor: c.fornecedor, lote: c.lote, localizacao: c.localizacao, ...extra };
@@ -809,8 +874,8 @@
                     document.getElementById('movQtd').value = '1';
                     document.getElementById('movLote').value = '';
                     document.getElementById('movEncomenda').value = '';
-                    document.getElementById('movSobra').value = '0';
                     document.getElementById('movArtigo').value = '';
+                    atualizarCamadasMovimento();
                     await carregarDados();
                     if (imprimir) {
                         imprimirEtiqueta(dadosEtiqueta, {
@@ -1115,6 +1180,7 @@
     /* ---------- Arranque ---------- */
     desenharLogo();
     document.getElementById('movArtigo').addEventListener('change', atualizarStockMovimento);
+    document.getElementById('movQtd').addEventListener('input', () => selecionarCamadaMovimento(false));
     document.querySelectorAll('input[name=movimento]').forEach(x => x.addEventListener('change', atualizarPainelMovimento));
     ir(location.hash.replace('#', '') || 'inicio', false);
 </script>
