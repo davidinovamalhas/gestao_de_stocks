@@ -71,6 +71,14 @@
     .dif-pos, .tipo-entrada { color: #1e8449; font-weight: bold; }
     .dif-neg, .tipo-saida { color: #c0392b; font-weight: bold; }
     .tipo-ajuste { color: #b9770e; font-weight: bold; }
+    .tipo-producao { color: #8e44ad; font-weight: bold; }
+    .stock-protegido { background: #eef5fb; border: 1px solid #9cc2df; border-radius: 6px; padding: 11px 13px; font-weight: bold; color: #164e70; min-height: 42px; }
+    .stock-protegido small { display:block; font-weight: normal; color:#52758c; margin-top:2px; }
+    .production-box { display:none; background:#f7effb; border:1px solid #d7b9e4; border-radius:8px; padding:14px; margin:4px 0 16px; }
+    .production-box.visible { display:block; }
+    .date-filter { background:#f7f9fb; border:1px solid #dde3ea; border-radius:8px; padding:12px; margin:10px 0 14px; }
+    .lot-list { display:flex; flex-wrap:wrap; gap:5px; min-width:180px; }
+    .lot-list .tag { background:#fff4d6; color:#7d5b00; border-color:#e7c96b; }
 
     #mensagem { display: none; padding: 12px 15px; border-radius: 6px; margin-bottom: 14px; font-weight: bold; }
     #mensagem.ok { display: block; background: #d5f5e3; color: #1e8449; border: 1px solid #a9dfbf; }
@@ -189,11 +197,20 @@
                 <div class="form-group">
                     <label>Tipo de movimento</label>
                     <div class="radio-group">
-                        <label><input type="radio" name="movimento" value="entrada" checked> 🟢 Entrada</label>
-                        <label><input type="radio" name="movimento" value="saida"> 🔴 Saída</label>
+                        <label><input type="radio" name="movimento" value="entrada" checked onchange="atualizarPainelMovimento()"> 🟢 Entrada</label>
+                        <label><input type="radio" name="movimento" value="saida" onchange="atualizarPainelMovimento()"> 🔴 Saída</label>
+                        <label><input type="radio" name="movimento" value="producao" onchange="atualizarPainelMovimento()"> 🟣 Saída para produção</label>
                     </div>
                 </div>
-                <div class="form-group"><label for="movQtd">Quantidade</label><input type="number" id="movQtd" min="0" step="any" value="1"></div>
+                <div class="form-group"><label for="movQtd">Quantidade a enviar</label><input type="number" id="movQtd" min="0" step="any" value="1" oninput="atualizarProjecaoMovimento()"></div>
+                <div class="form-group"><label>Stock disponível (orientação)</label><div id="movStockAtual" class="stock-protegido" aria-readonly="true">Selecione um artigo<small>Campo protegido — não editável</small></div></div>
+            </div>
+            <div class="production-box" id="painelProducao">
+                <div class="row">
+                    <div class="form-group"><label for="movEncomenda">Encomenda / ordem de produção</label><input type="text" id="movEncomenda" maxlength="80" placeholder="Ex.: ENC-2026-014"></div>
+                    <div class="form-group"><label for="movSobra">Previsão de sobra no fim da encomenda</label><input type="number" id="movSobra" min="0" step="any" value="0" oninput="atualizarProjecaoMovimento()"></div>
+                </div>
+                <div id="movProjecao" class="nota"></div>
             </div>
             <div class="row">
                 <div class="form-group"><label for="movFornecedor">Fornecedor</label><input type="text" id="movFornecedor" list="listaFornecedores" maxlength="120" placeholder="Ex: Fornecedor A" autocomplete="off"></div>
@@ -212,7 +229,7 @@
                 <button id="btnConfirmar" class="btn" onclick="confirmarMovimento()">Confirmar lançamento</button>
                 <button class="btn azul" onclick="imprimirEtiquetaMovimento()">🖨️ Imprimir etiqueta A5</button>
             </div>
-            <p class="nota">O botão “Imprimir etiqueta A5” usa o artigo, a quantidade, o fornecedor, o lote e a localização indicados acima (também sem confirmar o lançamento).</p>
+            <p class="nota">Numa saída para produção, a quantidade sai do armazém e a sobra prevista é apresentada como stock projetado após a conclusão da encomenda. O stock disponível é sempre mostrado num campo protegido.</p>
         </div>
     </section>
 
@@ -226,6 +243,7 @@
                 <div><label for="pesqInv">Pesquisar</label><input type="search" id="pesqInv" placeholder="🔎 Pesquisar..." oninput="renderInventario()"></div>
                 <div><label for="invCat">Categoria</label><select id="invCat" onchange="renderInventario()"></select></div>
             </div>
+            <div class="date-filter"><b>Período de pesquisa do inventário</b><div class="row" style="margin-top:8px"><div><label for="invDataInicio">Data inicial</label><input type="date" id="invDataInicio" onchange="renderInventario()"></div><div><label for="invDataFim">Data final</label><input type="date" id="invDataFim" onchange="renderInventario()"></div></div><span class="nota">As existências e os lotes são calculados com os movimentos até à data final indicada.</span></div>
             <div id="tabelaInventario"></div>
             <div class="acoes"><button class="btn" id="btnAplicarInv" onclick="aplicarInventario()">Aplicar ajustes</button>
             <button class="btn cinza" onclick="limparContagens()">Limpar contagens</button></div>
@@ -251,6 +269,7 @@
                         <option value="todos">Todos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option><option value="ajuste">Ajustes de inventário</option>
                     </select></div>
             </div>
+            <div class="date-filter"><b>Período de pesquisa</b><div class="row" style="margin-top:8px"><div><label for="listDataInicio">Data inicial</label><input type="date" id="listDataInicio" onchange="renderListagem(); if(modoList()==='historico') carregarHistorico()"></div><div><label for="listDataFim">Data final</label><input type="date" id="listDataFim" onchange="renderListagem(); if(modoList()==='historico') carregarHistorico()"></div></div><span class="nota">No histórico, filtra os movimentos. No stock, mostra os artigos com movimentos no período e os respetivos lotes.</span></div>
             <div id="resumoList" style="margin-top:10px;color:#555"></div>
             <div id="tabelaListagem"></div>
             <div class="acoes"><button class="btn azul" onclick="exportarCSV()">⬇️ Exportar CSV</button><button class="btn cinza" onclick="window.print()">🖨️ Imprimir página</button></div>
@@ -416,11 +435,17 @@
             return;
         }
         cacheStock = (data || []).slice().sort(cmpArtigos);
+        const hist = await _supabase.from('movimentos').select('*').order('created_at', { ascending: false }).limit(2000);
+        if (!hist.error) { cacheMov = hist.data || []; erroHistorico = ''; }
         renderTudo();
     }
 
     async function carregarHistorico() {
-        const { data, error } = await _supabase.from('movimentos').select('*').order('created_at', { ascending: false }).limit(500);
+        let q = _supabase.from('movimentos').select('*').order('created_at', { ascending: false }).limit(2000);
+        const ini = document.getElementById('listDataInicio')?.value, fim = document.getElementById('listDataFim')?.value;
+        if (ini) q = q.gte('created_at', ini + 'T00:00:00');
+        if (fim) q = q.lte('created_at', fim + 'T23:59:59');
+        const { data, error } = await q;
         if (error) {
             console.error(error);
             cacheMov = [];
@@ -529,6 +554,7 @@
             sel.appendChild(o);
         });
         sel.value = (antigo && lista.some(a => String(a.id) === antigo)) ? antigo : '';
+        if (selId === 'movArtigo') atualizarStockMovimento();
     }
 
     function preencherSelects() {
@@ -655,6 +681,66 @@
         } finally { btn.disabled = false; }
     }
 
+    function dataDentroPeriodo(createdAt, iniId, fimId) {
+        const d = createdAt ? new Date(createdAt) : null;
+        if (!d || Number.isNaN(d.getTime())) return true;
+        const ini = document.getElementById(iniId)?.value, fim = document.getElementById(fimId)?.value;
+        if (ini && d < new Date(ini + 'T00:00:00')) return false;
+        if (fim && d > new Date(fim + 'T23:59:59')) return false;
+        return true;
+    }
+    function movimentosDoArtigo(id, iniId='invDataInicio', fimId='invDataFim') {
+        return cacheMov.filter(m => String(m.artigo_id) === String(id) && dataDentroPeriodo(m.created_at, iniId, fimId));
+    }
+    function stockAteData(a, fimId='invDataFim') {
+        const fim = document.getElementById(fimId)?.value;
+        if (!fim) return Number(a.stock_atual) || 0;
+        const ms = cacheMov.filter(m => String(m.artigo_id) === String(a.id) && new Date(m.created_at) <= new Date(fim + 'T23:59:59')).slice().sort((x,y) => new Date(x.created_at) - new Date(y.created_at));
+        if (!ms.length) return 0;
+        let stock = 0;
+        ms.forEach(m => {
+            const q = Number(m.quantidade) || 0;
+            if (m.tipo === 'entrada') stock += q;
+            else if (m.tipo === 'saida' || m.tipo === 'producao') stock -= q;
+            else if (m.tipo === 'ajuste') stock = Number(m.stock_depois) || 0;
+        });
+        return stock;
+    }
+    function lotesDoArtigo(id, iniId='invDataInicio', fimId='invDataFim') {
+        const mapa = {};
+        movimentosDoArtigo(id, iniId, fimId).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(m => {
+            const lote = (m.lote || 'Sem lote').trim() || 'Sem lote';
+            const q = Number(m.quantidade) || 0;
+            if (!mapa[lote]) mapa[lote] = 0;
+            if (m.tipo === 'entrada') mapa[lote] += q;
+            else if (m.tipo === 'saida' || m.tipo === 'producao') mapa[lote] -= q;
+            else if (m.tipo === 'ajuste' && m.lote) mapa[lote] = Number(m.stock_depois) || 0;
+        });
+        return Object.entries(mapa).filter(([,q]) => q > 0).map(([lote,q]) => ({ lote, quantidade:q }));
+    }
+    function htmlLotes(id, ini='invDataInicio', fim='invDataFim') {
+        const ls = lotesDoArtigo(id, ini, fim);
+        return ls.length ? '<div class="lot-list">' + ls.map(x => `<span class="tag">${esc(x.lote)}: ${fmt(x.quantidade)}</span>`).join('') + '</div>' : '<span class="nota">Sem lotes registados</span>';
+    }
+    function atualizarPainelMovimento() {
+        const prod = tipoMov() === 'producao';
+        document.getElementById('painelProducao').classList.toggle('visible', prod);
+        atualizarProjecaoMovimento();
+    }
+    function atualizarProjecaoMovimento() {
+        const el = document.getElementById('movProjecao'), a = artigoPorId(document.getElementById('movArtigo').value);
+        const q = lerQtdMov(), sobra = parseFloat(String(document.getElementById('movSobra').value).replace(',', '.')) || 0;
+        if (!el || tipoMov() !== 'producao' || !a || !Number.isFinite(q)) return;
+        const stock = Number(a.stock_atual) || 0;
+        el.innerHTML = `Stock após saída do armazém: <b>${fmt(stock - q)} ${esc(a.unidade || 'Un')}</b> · Stock projetado após a encomenda (com sobra): <b>${fmt(stock - q + sobra)} ${esc(a.unidade || 'Un')}</b>`;
+    }
+    function atualizarStockMovimento() {
+        const el = document.getElementById('movStockAtual'), a = artigoPorId(document.getElementById('movArtigo').value);
+        if (!a) { el.innerHTML = 'Selecione um artigo<small>Campo protegido — não editável</small>'; return; }
+        el.innerHTML = `${fmt(Number(a.stock_atual)||0)} ${esc(a.unidade||'Un')}<small>${esc(nomeCompleto(a))} · protegido</small>`;
+        atualizarProjecaoMovimento();
+    }
+
     /* ---------- MOVIMENTOS ---------- */
     function lerQtdMov() {
         return parseFloat(String(document.getElementById('movQtd').value).replace(',', '.'));
@@ -703,13 +789,18 @@
                 if (eU) throw eU;
 
                 if (upd && upd.length > 0) {
-                    const { error: eM } = await _supabase.from('movimentos').insert({
-                        artigo_id: String(id), artigo: atual.artigo, categoria: atual.categoria || null,
-                        tipo, quantidade, stock_antes: stockAntes, stock_depois: stockDepois,
-                        fornecedor: c.fornecedor, lote: c.lote, localizacao: c.localizacao
-                    });
+                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), previsao_sobra: Number(document.getElementById('movSobra').value) || 0, tipo_operacao: 'producao' } : {};
+                    let registo = { artigo_id: String(id), artigo: atual.artigo, categoria: atual.categoria || null,
+                        tipo: tipo === 'producao' ? 'saida' : tipo, quantidade, stock_antes: stockAntes, stock_depois: stockDepois,
+                        fornecedor: c.fornecedor, lote: c.lote, localizacao: c.localizacao, ...extra };
+                    let { error: eM } = await _supabase.from('movimentos').insert(registo);
+                    if (eM && tipo === 'producao') {
+                        // Compatibilidade com bases que ainda não têm as colunas opcionais.
+                        delete registo.ordem_producao; delete registo.previsao_sobra; delete registo.tipo_operacao;
+                        ({ error: eM } = await _supabase.from('movimentos').insert(registo));
+                    }
                     let aviso = '';
-                    if (eM) { console.error(eM); aviso = ' ⚠️ O histórico não foi gravado: execute o SQL de atualização no Supabase.'; }
+                    if (eM) { console.error(eM); aviso = ' ⚠️ O stock foi atualizado, mas o histórico não foi gravado.'; }
 
                     mostrarMensagem(`${tipo === 'entrada' ? 'Entrada' : 'Saída'} registada: "${nomeCompleto(atual)}" ${fmt(stockAntes)} → ${fmt(stockDepois)}.${aviso}`, aviso ? 'erro' : 'ok');
 
@@ -717,6 +808,8 @@
                     const dadosEtiqueta = { ...atual, stock_atual: stockDepois, fornecedor: c.fornecedor, lote: c.lote, armazem: c.localizacao };
                     document.getElementById('movQtd').value = '1';
                     document.getElementById('movLote').value = '';
+                    document.getElementById('movEncomenda').value = '';
+                    document.getElementById('movSobra').value = '0';
                     document.getElementById('movArtigo').value = '';
                     await carregarDados();
                     if (imprimir) {
@@ -751,16 +844,17 @@
 
     /* ---------- INVENTÁRIO ---------- */
     function renderInventario() {
-        const lista = filtrar(filtroCat(cacheStock, document.getElementById('invCat').value), document.getElementById('pesqInv').value);
+        const idsComMov = new Set(cacheMov.filter(m => dataDentroPeriodo(m.created_at, 'invDataInicio', 'invDataFim')).map(m => String(m.artigo_id)));
+        const lista = filtrar(filtroCat(cacheStock, document.getElementById('invCat').value), document.getElementById('pesqInv').value).filter(a => !cacheMov.length || idsComMov.has(String(a.id)));
         const div = document.getElementById('tabelaInventario');
         if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem artigos.</p>'; return; }
 
-        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Localização (último mov.)</th><th>Stock sistema</th><th>Contagem</th><th>Diferença</th></tr>';
+        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Localização (último mov.)</th><th>Stock sistema</th><th>Lotes em stock</th><th>Contagem</th><th>Diferença</th></tr>';
         lista.forEach(a => {
-            const s = Number(a.stock_atual) || 0;
+            const s = stockAteData(a);
             const v = contagens[a.id] ?? '';
             h += `<tr><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td><td>${esc(a.armazem || '-')}</td>
-                <td>${fmt(s)}</td>
+                <td>${fmt(s)}</td><td>${htmlLotes(a.id)}</td>
                 <td><input type="number" min="0" step="any" data-id="${esc(a.id)}" data-sistema="${s}" value="${esc(v)}" oninput="onContagem(this)"></td>
                 <td class="dif" id="dif-${esc(a.id)}"></td></tr>`;
         });
@@ -835,6 +929,8 @@
         const f = document.getElementById('filtroList').value;
         if (f === 'esgotados') lista = lista.filter(a => (Number(a.stock_atual) || 0) <= 0);
         if (f === 'comstock') lista = lista.filter(a => (Number(a.stock_atual) || 0) > 0);
+        const ini = document.getElementById('listDataInicio')?.value, fim = document.getElementById('listDataFim')?.value;
+        if (ini || fim) lista = lista.filter(a => movimentosDoArtigo(a.id, 'listDataInicio', 'listDataFim').length > 0);
         return lista;
     }
 
@@ -853,6 +949,7 @@
     }
 
     const ROTULO_TIPO = { entrada: 'Entrada', saida: 'Saída', ajuste: 'Ajuste' };
+    function rotuloMov(m) { return m.tipo_operacao === 'producao' ? 'Saída para produção' : (ROTULO_TIPO[m.tipo] || m.tipo); }
 
     function renderListagem() {
         const div = document.getElementById('tabelaListagem');
@@ -868,7 +965,7 @@
                 const q = Number(m.quantidade) || 0;
                 h += `<tr><td>${esc(new Date(m.created_at).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }))}</td>
                     <td><b>${esc(m.artigo || '-')}</b></td><td>${m.categoria ? `<span class="tag">${esc(m.categoria)}</span>` : '-'}</td>
-                    <td class="tipo-${esc(m.tipo)}">${esc(ROTULO_TIPO[m.tipo] || m.tipo)}</td>
+                    <td class="tipo-${esc(m.tipo_operacao === 'producao' ? 'producao' : m.tipo)}">${esc(rotuloMov(m))}</td>
                     <td>${m.tipo === 'ajuste' && q > 0 ? '+' : ''}${fmt(q)}</td>
                     <td>${m.stock_antes == null ? '-' : fmt(m.stock_antes) + ' → ' + fmt(m.stock_depois)}</td>
                     <td>${esc(m.fornecedor || '-')}</td><td>${esc(m.lote || '-')}</td><td>${esc(m.localizacao || '-')}</td></tr>`;
@@ -882,12 +979,12 @@
         resumo.textContent = `${lista.length} artigo(s) apresentado(s) · ${cacheStock.length} no total · ${esgot} esgotado(s)`;
         if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem resultados.</p>'; return; }
 
-        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock atual</th><th>Últ. fornecedor</th><th>Últ. lote</th><th>Últ. localização</th><th>Observações</th></tr>';
+        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock atual</th><th>Lotes em stock</th><th>Últ. fornecedor</th><th>Últ. lote</th><th>Últ. localização</th><th>Observações</th></tr>';
         lista.forEach(a => {
             const s = Number(a.stock_atual) || 0, p = Number(a.preco) || 0, zero = s <= 0;
             h += `<tr ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td>
                 <td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
-                <td>${fmt(s)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td>
+                <td>${fmt(s)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td><td>${htmlLotes(a.id, 'listDataInicio', 'listDataFim')}</td>
                 <td>${esc(a.fornecedor || '-')}</td><td>${esc(a.lote || '-')}</td><td>${esc(a.armazem || '-')}</td><td>${esc(a.observacoes || '-')}</td></tr>`;
         });
         div.innerHTML = h + '</table></div>';
@@ -1017,6 +1114,8 @@
 
     /* ---------- Arranque ---------- */
     desenharLogo();
+    document.getElementById('movArtigo').addEventListener('change', atualizarStockMovimento);
+    document.querySelectorAll('input[name=movimento]').forEach(x => x.addEventListener('change', atualizarPainelMovimento));
     ir(location.hash.replace('#', '') || 'inicio', false);
 </script>
 </body>
