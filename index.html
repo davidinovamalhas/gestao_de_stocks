@@ -99,6 +99,9 @@
     .camada-box { display:none; background:#eef7ee; border:1px solid #b7d9b7; border-radius:8px; padding:12px; margin:4px 0 16px; }
     .camada-box.visible { display:block; }
     .camada-box select { border-color:#8bc48b; }
+    .production-return-box { display:none; background:#fff8e8; border:1px solid #e7c96b; border-radius:8px; padding:12px; margin:4px 0 16px; }
+    .production-return-box.visible { display:block; }
+    .tipo-retorno, .tipo-consumo { color:#b9770e; font-weight:bold; }
 
     #mensagem { display: none; padding: 12px 15px; border-radius: 6px; margin-bottom: 14px; font-weight: bold; }
     #mensagem.ok { display: block; background: #d5f5e3; color: #1e8449; border: 1px solid #a9dfbf; }
@@ -235,10 +238,15 @@
                         <label><input type="radio" name="movimento" value="entrada" checked onchange="atualizarPainelMovimento()"> 🟢 Entrada</label>
                         <label><input type="radio" name="movimento" value="saida" onchange="atualizarPainelMovimento()"> 🔴 Saída</label>
                         <label><input type="radio" name="movimento" value="producao" onchange="atualizarPainelMovimento()"> 🟣 Saída para produção</label>
+                        <label><input type="radio" name="movimento" value="consumo_producao" onchange="atualizarPainelMovimento()"> 🟠 Consumir stock em produção</label>
                     </div>
                 </div>
                 <div class="form-group"><label id="movQtdLabel" for="movQtd">Quantidade a sair do armazém</label><input type="number" id="movQtd" min="0" step="any" value="1" oninput="atualizarProjecaoMovimento()"></div>
                 <div class="form-group"><label>Stock disponível (orientação)</label><div id="movStockAtual" class="stock-protegido" aria-readonly="true">Selecione um artigo<small>Campo protegido — não editável</small></div></div>
+            </div>
+            <div class="production-return-box" id="painelRetornoProducao">
+                <label class="check"><input type="checkbox" id="movFioProducao" onchange="atualizarPainelMovimento()"> Fio da produção (retornar para o armazém)</label>
+                <div class="nota">Ao confirmar, retira a quantidade do stock em Produção e lança-a novamente no stock do armazém.</div>
             </div>
             <div class="production-box" id="painelProducao">
                 <div class="row">
@@ -807,10 +815,12 @@
         return sel && sel.value ? camadas.find(c => c.chave === sel.value) : null;
     }
     function atualizarPainelMovimento() {
-        const prod = tipoMov() === 'producao';
+        const tipo = tipoMov(), prod = tipo === 'producao', consumo = tipo === 'consumo_producao';
+        const retorno = tipo === 'entrada';
         document.getElementById('painelProducao').classList.toggle('visible', prod);
+        document.getElementById('painelRetornoProducao').classList.toggle('visible', retorno);
         const label = document.getElementById('movQtdLabel');
-        if (label) label.textContent = prod ? 'Quantidade a sair do armazém' : 'Quantidade a sair do armazém';
+        if (label) label.textContent = (prod || consumo) ? 'Quantidade a sair do stock em Produção' : 'Quantidade a sair do armazém';
         atualizarCamadasMovimento();
         atualizarProjecaoMovimento();
     }
@@ -818,24 +828,37 @@
         return parseFloat(String(document.getElementById('movQtdGasta')?.value || '').replace(',', '.'));
     }
     function stockProducaoArtigo(id) {
-        return cacheMov.filter(m => String(m.artigo_id) === String(id) && m.tipo_operacao === 'producao')
-            .reduce((total, m) => total + (Number(m.quantidade_producao) || 0), 0);
+        return cacheMov.filter(m => String(m.artigo_id) === String(id) && ['producao','retorno_producao','consumo_producao'].includes(m.tipo_operacao))
+            .reduce((total, m) => {
+                if (m.tipo_operacao === 'producao') return total + (Number(m.quantidade_producao) || 0);
+                return total - (Number(m.quantidade_producao) || Number(m.quantidade) || 0);
+            }, 0);
+    }
+    function operacaoMov() {
+        if (tipoMov() === 'entrada' && document.getElementById('movFioProducao')?.checked) return 'retorno_producao';
+        return tipoMov();
     }
     function atualizarProjecaoMovimento() {
         const el = document.getElementById('movProjecao'), sobraEl = document.getElementById('movSobraAuto');
-        const a = artigoPorId(document.getElementById('movArtigo').value), qSai = lerQtdMov();
-        if (!el || tipoMov() !== 'producao') return;
-        const qGasta = lerQtdGasta();
-        if (!a || !Number.isFinite(qSai) || !Number.isFinite(qGasta)) {
-            if (sobraEl) sobraEl.innerHTML = 'Selecione um artigo<small>Calculada: sai do armazém − gasta na encomenda</small>';
-            el.textContent = '';
+        const a = artigoPorId(document.getElementById('movArtigo').value), tipo = tipoMov(), q = lerQtdMov();
+        if (!el) return;
+        if (tipo === 'entrada' && document.getElementById('movFioProducao')?.checked) {
+            const prod = a ? stockProducaoArtigo(a.id) : 0;
+            if (sobraEl) sobraEl.innerHTML = `${fmt(prod)} ${esc(a?.unidade || 'Un')}<small>Stock atual em Produção</small>`;
+            el.innerHTML = a ? `Depois do retorno: <b>${fmt(prod - q)} ${esc(a.unidade || 'Un')}</b> em Produção e <b>${fmt((Number(a.stock_atual)||0) + q)} ${esc(a.unidade || 'Un')}</b> no armazém.` : '';
             return;
         }
-        const stockArmazemDepois = (Number(a.stock_atual) || 0) - qSai;
-        const diferenca = qSai - qGasta;
-        const producaoAtual = stockProducaoArtigo(a.id);
-        if (sobraEl) sobraEl.innerHTML = `${fmt(diferenca)} ${esc(a.unidade || 'Un')}<small>Campo protegido · localizada em Produção</small>`;
-        el.innerHTML = `Stock armazém depois da saída: <b>${fmt(stockArmazemDepois)} ${esc(a.unidade || 'Un')}</b> · Stock em Produção após este movimento: <b>${fmt(producaoAtual + diferenca)} ${esc(a.unidade || 'Un')}</b>`;
+        if (tipo === 'consumo_producao') {
+            const prod = a ? stockProducaoArtigo(a.id) : 0;
+            el.innerHTML = a ? `Stock em Produção depois do consumo: <b>${fmt(prod - q)} ${esc(a.unidade || 'Un')}</b>` : '';
+            return;
+        }
+        if (tipo !== 'producao') { el.textContent = ''; return; }
+        const qGasta = lerQtdGasta();
+        if (!a || !Number.isFinite(q) || !Number.isFinite(qGasta)) { if (sobraEl) sobraEl.textContent = 'Preencha as quantidades'; el.textContent = ''; return; }
+        const stockArmazemDepois = (Number(a.stock_atual)||0) - q, diferenca = q - qGasta, prod = stockProducaoArtigo(a.id);
+        if (sobraEl) sobraEl.innerHTML = `${fmt(diferenca)} ${esc(a.unidade || 'Un')}<small>Fica localizada em Produção</small>`;
+        el.innerHTML = `Armazém depois da saída: <b>${fmt(stockArmazemDepois)} ${esc(a.unidade || 'Un')}</b> · Stock em Produção depois: <b>${fmt(prod + diferenca)} ${esc(a.unidade || 'Un')}</b>`;
     }
     function atualizarStockMovimento() {
         const el = document.getElementById('movStockAtual'), a = artigoPorId(document.getElementById('movArtigo').value);
@@ -864,8 +887,12 @@
         if (!id) { mostrarMensagem('Selecione um artigo (crie-o primeiro em "Artigos").', 'erro'); return; }
         if (!Number.isFinite(quantidade) || quantidade <= 0) { mostrarMensagem('Indique uma quantidade válida, superior a zero.', 'erro'); return; }
         const quantidadeGasta = tipo === 'producao' ? lerQtdGasta() : null;
+        const retorno = tipo === 'entrada' && document.getElementById('movFioProducao')?.checked;
+        const consumo = tipo === 'consumo_producao';
         if (tipo === 'producao' && (!Number.isFinite(quantidadeGasta) || quantidadeGasta < 0)) { mostrarMensagem('Indique uma quantidade consumida válida.', 'erro'); return; }
         if (tipo === 'producao' && quantidadeGasta > quantidade) { mostrarMensagem('A quantidade gasta não pode ser superior à quantidade que sai do armazém.', 'erro'); return; }
+        const prodDisponivel = stockProducaoArtigo(id);
+        if ((retorno || consumo) && quantidade > prodDisponivel + 0.0000001) { mostrarMensagem(`O stock em Produção tem apenas ${fmt(prodDisponivel)} disponível.`, 'erro'); return; }
         if (tipo === 'saida' || tipo === 'producao') {
             const camadas = camadasStockArtigo(id), camada = camadaMovimentoAtual(id);
             if (camadas.length && !camada) { mostrarMensagem('Selecione o fornecedor, lote e localização de origem do stock.', 'erro'); return; }
@@ -880,7 +907,7 @@
                 if (eL) throw eL;
 
                 const stockAntes = Number(atual.stock_atual) || 0;
-                const stockDepois = tipo === 'entrada' ? stockAntes + quantidade : stockAntes - quantidade;
+                const stockDepois = retorno ? stockAntes + quantidade : (tipo === 'entrada' ? stockAntes + quantidade : (consumo ? stockAntes : stockAntes - quantidade));
                 if (stockDepois < 0) {
                     mostrarMensagem(`Stock insuficiente: "${atual.artigo}" tem apenas ${fmt(stockAntes)} disponível.`, 'erro');
                     await carregarDados();
@@ -901,7 +928,7 @@
                 if (eU) throw eU;
 
                 if (upd && upd.length > 0) {
-                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), quantidade_gasta: quantidadeGasta, quantidade_producao: quantidade - quantidadeGasta, previsao_sobra: quantidade - quantidadeGasta, localizacao_producao: 'Produção', tipo_operacao: 'producao' } : {};
+                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), quantidade_gasta: quantidadeGasta, quantidade_producao: quantidade - quantidadeGasta, previsao_sobra: quantidade - quantidadeGasta, localizacao_producao: 'Produção', tipo_operacao: 'producao' } : retorno ? { tipo: 'entrada', quantidade_producao: quantidade, localizacao_producao: 'Produção', tipo_operacao: 'retorno_producao' } : consumo ? { tipo: 'saida', quantidade_gasta: quantidade, quantidade_producao: quantidade, localizacao_producao: 'Produção', tipo_operacao: 'consumo_producao' } : {};
                     let registo = { artigo_id: String(id), artigo: atual.artigo, categoria: atual.categoria || null,
                         tipo: tipo === 'producao' ? 'saida' : tipo, quantidade, stock_antes: stockAntes, stock_depois: stockDepois,
                         fornecedor: c.fornecedor, lote: c.lote, localizacao: c.localizacao, ...extra };
@@ -914,12 +941,13 @@
                     let aviso = '';
                     if (eM) { console.error(eM); aviso = ' ⚠️ O stock foi atualizado, mas o histórico não foi gravado.'; }
 
-                    mostrarMensagem(`${tipo === 'entrada' ? 'Entrada' : tipo === 'producao' ? 'Saída para produção' : 'Saída'} registada: "${nomeCompleto(atual)}" ${fmt(stockAntes)} → ${fmt(stockDepois)}.${aviso}`, aviso ? 'erro' : 'ok');
+                    mostrarMensagem(`${retorno ? 'Retorno da produção' : consumo ? 'Consumo direto da produção' : tipo === 'entrada' ? 'Entrada' : tipo === 'producao' ? 'Saída para produção' : 'Saída'} registada: "${nomeCompleto(atual)}" ${fmt(stockAntes)} → ${fmt(stockDepois)}.${aviso}`, aviso ? 'erro' : 'ok');
 
                     const imprimir = document.getElementById('movImprimirAuto').checked;
                     const dadosEtiqueta = { ...atual, stock_atual: stockDepois, fornecedor: c.fornecedor, lote: c.lote, armazem: c.localizacao };
                     document.getElementById('movQtd').value = '1';
                     document.getElementById('movQtdGasta').value = '1';
+                    document.getElementById('movFioProducao').checked = false;
                     document.getElementById('movLote').value = '';
                     document.getElementById('movEncomenda').value = '';
                     document.getElementById('movArtigo').value = '';
@@ -1062,7 +1090,8 @@
     }
 
     const ROTULO_TIPO = { entrada: 'Entrada', saida: 'Saída', ajuste: 'Ajuste' };
-    function rotuloMov(m) { return m.tipo_operacao === 'producao' ? 'Saída para produção' : (ROTULO_TIPO[m.tipo] || m.tipo); }
+    const ROTULO_OPERACAO = { retorno_producao: 'Retorno da produção', consumo_producao: 'Consumo direto da produção' };
+    function rotuloMov(m) { return ROTULO_OPERACAO[m.tipo_operacao] || (m.tipo_operacao === 'producao' ? 'Saída para produção' : (ROTULO_TIPO[m.tipo] || m.tipo)); }
 
     function renderListagem() {
         const div = document.getElementById('tabelaListagem');
@@ -1230,6 +1259,7 @@
     document.getElementById('movArtigo').addEventListener('change', atualizarStockMovimento);
     document.getElementById('movQtd').addEventListener('input', () => selecionarCamadaMovimento(false));
     document.getElementById('movQtdGasta').addEventListener('input', atualizarProjecaoMovimento);
+    document.getElementById('movFioProducao').addEventListener('change', atualizarPainelMovimento);
     document.querySelectorAll('input[name=movimento]').forEach(x => x.addEventListener('change', atualizarPainelMovimento));
     ir(location.hash.replace('#', '') || 'inicio', false);
 </script>
