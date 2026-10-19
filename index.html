@@ -81,22 +81,21 @@
     #tabelaInventario table th:nth-child(5), #tabelaInventario table th:nth-child(6) { width: 12%; }
     #tabelaInventario table th:nth-child(7) { width: 25%; }
     #tabelaInventario table th:nth-child(8), #tabelaInventario table th:nth-child(9) { width: 10%; }
-    /* Listagens: tabela de stock mais compacta nas colunas curtas */
-    #tabelaListagem table.stock-list th:nth-child(1) { width: 22%; } /* Artigo */
-    #tabelaListagem table.stock-list th:nth-child(2) { width: 5%; }  /* Categoria */
-    #tabelaListagem table.stock-list th:nth-child(3) { width: 3%; }  /* Unidade */
-    #tabelaListagem table.stock-list th:nth-child(4) { width: 4%; }  /* Preço */
-    #tabelaListagem table.stock-list th:nth-child(5) { width: 8%; }  /* Stock armazém */
-    #tabelaListagem table.stock-list th:nth-child(6) { width: 7%; }  /* Produção */
-    #tabelaListagem table.stock-list th:nth-child(7) { width: 29%; } /* Lotes */
-    #tabelaListagem table.stock-list th:nth-child(8) { width: 7%; }  /* Fornecedor */
-    #tabelaListagem table.stock-list th:nth-child(9) { width: 6%; }  /* Lote */
-    #tabelaListagem table.stock-list th:nth-child(10) { width: 4%; } /* Localização */
-    #tabelaListagem table.stock-list th:nth-child(11) { width: 5%; } /* Observações */
-    #tabelaListagem table.stock-list th:nth-child(3), #tabelaListagem table.stock-list td:nth-child(3),
-    #tabelaListagem table.stock-list th:nth-child(4), #tabelaListagem table.stock-list td:nth-child(4),
-    #tabelaListagem table.stock-list th:nth-child(6), #tabelaListagem table.stock-list td:nth-child(6),
-    #tabelaListagem table.stock-list th:nth-child(10), #tabelaListagem table.stock-list td:nth-child(10) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Listagens: no computador a tabela pode ultrapassar a largura e usa deslocamento horizontal. */
+    #tabelaListagem table.stock-list { table-layout: auto; width: max-content; min-width: 1380px; max-width: none; }
+    #tabelaListagem table.stock-list th { white-space: normal; line-height: 1.15; overflow-wrap: normal; word-break: normal; vertical-align: middle; }
+    #tabelaListagem table.stock-list th:nth-child(1), #tabelaListagem table.stock-list td:nth-child(1) { min-width: 270px; }
+    #tabelaListagem table.stock-list th:nth-child(2), #tabelaListagem table.stock-list td:nth-child(2) { min-width: 95px; }
+    #tabelaListagem table.stock-list th:nth-child(3), #tabelaListagem table.stock-list td:nth-child(3) { min-width: 50px; }
+    #tabelaListagem table.stock-list th:nth-child(4), #tabelaListagem table.stock-list td:nth-child(4) { min-width: 70px; }
+    #tabelaListagem table.stock-list th:nth-child(5), #tabelaListagem table.stock-list td:nth-child(5) { min-width: 110px; }
+    #tabelaListagem table.stock-list th:nth-child(6), #tabelaListagem table.stock-list td:nth-child(6) { min-width: 115px; }
+    #tabelaListagem table.stock-list th:nth-child(7), #tabelaListagem table.stock-list td:nth-child(7) { min-width: 360px; }
+    #tabelaListagem table.stock-list th:nth-child(8), #tabelaListagem table.stock-list td:nth-child(8) { min-width: 180px; }
+    #tabelaListagem table.stock-list th:nth-child(9), #tabelaListagem table.stock-list td:nth-child(9) { min-width: 180px; }
+    #tabelaListagem table.stock-list th:nth-child(10), #tabelaListagem table.stock-list td:nth-child(10) { min-width: 130px; }
+    #tabelaListagem table.stock-list td:nth-child(1), #tabelaListagem table.stock-list td:nth-child(7),
+    #tabelaListagem table.stock-list td:nth-child(8), #tabelaListagem table.stock-list td:nth-child(9) { white-space: normal; overflow: visible; }
     #tabelaListagem table.history-list th:nth-child(1) { width: 14%; }
     #tabelaListagem table.history-list th:nth-child(2) { width: 15%; }
     #tabelaListagem table.history-list th:nth-child(3) { width: 8%; }
@@ -911,6 +910,10 @@
         });
         return Object.entries(mapa).filter(([,q]) => q > 0).map(([lote,q]) => ({ lote, quantidade:q }));
     }
+    function htmlValoresCamada(id, campo) {
+        const valores = [...new Set(camadasStockArtigo(id).map(c => c[campo]).filter(Boolean))];
+        return valores.length ? valores.map(v => `<span class="tag">${esc(v)}</span>`).join(' ') : '<span class="nota">-</span>';
+    }
     function htmlLotes(id, ini='invDataInicio', fim='invDataFim') {
         const ls = lotesDoArtigo(id, ini, fim);
         return ls.length ? '<div class="lot-list">' + ls.map(x => `<span class="tag">${esc(x.lote)}: ${fmt(x.quantidade)}</span>`).join('') + '</div>' : '<span class="nota">Sem lotes registados</span>';
@@ -1290,13 +1293,13 @@
         resumo.textContent = `${lista.length} artigo(s) apresentado(s) · ${cacheStock.length} no total · ${esgot} esgotado(s)`;
         if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem resultados.</p>'; return; }
 
-        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock armazém</th><th>Stock em Produção</th><th>Lotes em stock</th><th>Últ. fornecedor</th><th>Últ. lote</th><th>Últ. localização</th><th>Observações</th></tr>';
+        let h = '<div class="table-wrap"><table class="stock-list"><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock armazém</th><th>Stock em<br>Produção</th><th>Lotes</th><th>Fornecedores</th><th>Localização</th><th>Observações</th></tr>';
         lista.forEach(a => {
             const s = Number(a.stock_atual) || 0, p = Number(a.preco) || 0, zero = s <= 0;
             h += `<tr ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td>
                 <td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
                 <td>${fmt(s)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td><td>${fmt(stockProducaoArtigo(a.id))} ${esc(a.unidade || 'Un')}</td><td>${htmlLotes(a.id, 'listDataInicio', 'listDataFim')}</td>
-                <td>${esc(a.fornecedor || '-')}</td><td>${esc(a.lote || '-')}</td><td>${esc(a.armazem || '-')}</td><td>${esc(a.observacoes || '-')}</td></tr>`;
+                <td>${htmlValoresCamada(a.id, 'fornecedor')}</td><td>${htmlValoresCamada(a.id, 'localizacao')}</td><td>${esc(a.observacoes || '-')}</td></tr>`;
         });
         div.innerHTML = h + '</table></div>';
     }
@@ -1311,8 +1314,8 @@
             nome = 'movimentos_';
         } else {
             const lista = listaStockFiltrada();
-            cab = ['Artigo', 'Categoria', 'Unidade', 'Preço', 'Stock atual', 'Últ. fornecedor', 'Últ. lote', 'Últ. localização', 'Observações'];
-            linhas = lista.map(a => [a.artigo, a.categoria, a.unidade, a.preco, a.stock_atual, a.fornecedor, a.lote, a.armazem, a.observacoes]);
+            cab = ['Artigo', 'Categoria', 'Unidade', 'Preço', 'Stock atual', 'Fornecedores', 'Localização', 'Observações'];
+            linhas = lista.map(a => [a.artigo, a.categoria, a.unidade, a.preco, a.stock_atual, camadasStockArtigo(a.id).map(c => c.fornecedor).filter(Boolean).filter((v,i,x) => x.indexOf(v) === i).join(' | '), camadasStockArtigo(a.id).map(c => c.localizacao).filter(Boolean).filter((v,i,x) => x.indexOf(v) === i).join(' | '), a.observacoes]);
             nome = 'stock_';
         }
         if (!linhas.length) { mostrarMensagem('Não há dados para exportar.', 'erro'); return; }
