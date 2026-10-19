@@ -105,6 +105,33 @@
     #tabelaListagem table.history-list th:nth-child(6) { width: 12%; }
     #tabelaListagem table.history-list th:nth-child(7), #tabelaListagem table.history-list th:nth-child(8) { width: 10%; }
     #tabelaListagem table.history-list th:nth-child(9) { width: 12%; }
+    /* A listagem de stock ajusta-se ao conteúdo e usa deslocamento horizontal quando necessário. */
+    #tabelaListagem table.stock-list {
+        table-layout: auto;
+        width: max-content;
+        min-width: 1200px;
+        max-width: none;
+    }
+    #tabelaListagem table.stock-list th {
+        white-space: normal;
+        line-height: 1.15;
+        overflow-wrap: normal;
+        word-break: normal;
+        vertical-align: middle;
+    }
+    #tabelaListagem table.stock-list th:nth-child(1), #tabelaListagem table.stock-list td:nth-child(1) { min-width: 240px; }
+    #tabelaListagem table.stock-list th:nth-child(2), #tabelaListagem table.stock-list td:nth-child(2) { min-width: 90px; }
+    #tabelaListagem table.stock-list th:nth-child(3), #tabelaListagem table.stock-list td:nth-child(3) { min-width: 48px; }
+    #tabelaListagem table.stock-list th:nth-child(4), #tabelaListagem table.stock-list td:nth-child(4) { min-width: 68px; }
+    #tabelaListagem table.stock-list th:nth-child(5), #tabelaListagem table.stock-list td:nth-child(5) { min-width: 105px; }
+    #tabelaListagem table.stock-list th:nth-child(6), #tabelaListagem table.stock-list td:nth-child(6) { min-width: 105px; }
+    #tabelaListagem table.stock-list th:nth-child(7), #tabelaListagem table.stock-list td:nth-child(7) { min-width: 340px; }
+    #tabelaListagem table.stock-list th:nth-child(8), #tabelaListagem table.stock-list td:nth-child(8) { min-width: 105px; }
+    #tabelaListagem table.stock-list th:nth-child(9), #tabelaListagem table.stock-list td:nth-child(9) { min-width: 90px; }
+    #tabelaListagem table.stock-list th:nth-child(10), #tabelaListagem table.stock-list td:nth-child(10) { min-width: 105px; }
+    #tabelaListagem table.stock-list th:nth-child(11), #tabelaListagem table.stock-list td:nth-child(11) { min-width: 110px; }
+    #tabelaListagem table.stock-list td:nth-child(1) { white-space: normal; }
+    #tabelaListagem table.stock-list td:nth-child(7) { white-space: normal; overflow: visible; }
     th { background: #2c3e50; color: #fff; white-space: nowrap; }
     tr:nth-child(even) { background: #f9f9f9; }
     tr.stock-zero { background: #fadbd8 !important; color: #78281f; }
