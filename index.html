@@ -63,6 +63,16 @@
     table { width: 100%; max-width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; table-layout: fixed; }
     th, td { border: 1px solid #ddd; padding: 8px 7px; text-align: left; overflow-wrap: anywhere; vertical-align: top; }
     td .lot-list { min-width: 0; }
+    #tabelaArtigos table th:nth-child(1) { width: 39%; }
+    #tabelaArtigos table th:nth-child(2) { width: 13%; }
+    #tabelaArtigos table th:nth-child(3) { width: 6%; }
+    #tabelaArtigos table th:nth-child(4) { width: 8%; }
+    #tabelaArtigos table th:nth-child(5) { width: 19%; }
+    #tabelaArtigos table th:nth-child(6) { width: 15%; }
+    #tabelaArtigos table th:nth-child(2), #tabelaArtigos table td:nth-child(2),
+    #tabelaArtigos table th:nth-child(3), #tabelaArtigos table td:nth-child(3),
+    #tabelaArtigos table th:nth-child(4), #tabelaArtigos table td:nth-child(4) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #tabelaArtigos table td:nth-child(5) { white-space: nowrap; }
     #tabelaInventario table th:nth-child(1) { width: 22%; }
     #tabelaInventario table th:nth-child(2), #tabelaInventario table td:nth-child(2),
     #tabelaInventario table th:nth-child(4), #tabelaInventario table td:nth-child(4) { display: none; }
@@ -721,9 +731,10 @@
         let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock atual</th><th></th></tr>';
         lista.forEach(a => {
             const p = Number(a.preco) || 0, s = Number(a.stock_atual) || 0, zero = s <= 0;
+            const lotesComStock = lotesDoArtigo(a.id).length;
             h += `<tr ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td>
                 <td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
-                <td>${fmt(s)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td>
+                <td>${fmt(s)} (${lotesComStock} ${lotesComStock === 1 ? 'lote' : 'lotes'})${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td>
                 <td style="white-space:nowrap">
                     <button class="btn pequeno azul" onclick="editarArtigo('${esc(a.id)}')">Editar</button>
                     <button class="btn pequeno" onclick="irMovimento('${esc(a.id)}')">Movimento</button>
