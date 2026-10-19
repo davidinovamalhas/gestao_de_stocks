@@ -474,7 +474,7 @@
     function esc(v) {
         return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
-    function fmt(n) { return Number(Number(n).toFixed(3)).toString(); }
+    function fmt(n) { const v = Number(n); return Number.isFinite(v) ? v.toFixed(1) : '0.0'; }
     function val(id) { return document.getElementById(id).value.trim().replace(/\s+/g, ' '); }
     function valOuNull(id) { return val(id) || null; }
     function mostrarMensagem(texto, tipo = 'ok') {
