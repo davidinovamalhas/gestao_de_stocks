@@ -6,6 +6,7 @@
 <title>Inova Malhas · Gestão de Stock</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
 <style>
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
@@ -136,8 +137,12 @@
     .et-info { font-size: 15pt; display: grid; grid-template-columns: 1fr 1fr; gap: 2mm 8mm; }
     .et-info .full { grid-column: 1 / -1; }
     .et-qtd { font-size: 26pt; font-weight: bold; text-align: center; border: 2px solid #000; padding: 2mm; }
-    .et-rodape { text-align: center; }
-    .et-rodape svg { max-width: 100%; height: 18mm; }
+    .et-rodape { text-align: center; display:flex; flex-direction:column; align-items:center; gap:3mm; }
+    .et-rodape svg { max-width: 100%; height: 15mm; }
+    .et-rodape .qr-wrap { display:flex; align-items:center; justify-content:center; gap:5mm; }
+    .et-rodape canvas.qr-code { width: 27mm; height: 27mm; image-rendering: pixelated; }
+    .et-rodape .qr-legenda { font-size: 10pt; text-align:left; }
+    .etiqueta.retrato .et-rodape canvas.qr-code { width: 24mm; height: 24mm; }
 
     #areaImpressao { display: none; }
     /* Em monitores largos, usar toda a área disponível; em telemóveis, permitir deslocação apenas quando necessário. */
@@ -286,7 +291,7 @@
             </div>
             <div class="row">
                 <div class="form-group"><label for="movFornecedor">Fornecedor</label><input type="text" id="movFornecedor" list="listaFornecedores" maxlength="120" placeholder="Ex: Fornecedor A" autocomplete="off"></div>
-                <div class="form-group"><label for="movLote">Lote</label><input type="text" id="movLote" maxlength="60" placeholder="Ex: L2410-03"></div>
+                <div class="form-group"><label for="movLote">Lote</label><input type="text" id="movLote" list="listaLotesMovimento" maxlength="60" placeholder="Ex: L2410-03" autocomplete="off" onchange="validarLoteMovimento()"></div>
                 <div class="form-group"><label for="movLocal">Localização</label><input type="text" id="movLocal" list="listaLocalizacoes" maxlength="120" placeholder="Ex: Corredor 2 · Prateleira B" autocomplete="off"></div>
             </div>
             <div class="camada-box" id="movCamadaBox">
@@ -295,7 +300,7 @@
                 <div class="nota" style="margin-top:6px">Nas saídas, escolha a camada de stock. A quantidade disponível é controlada por esta combinação.</div>
             </div>
             <div class="form-group">
-                <label class="check"><input type="checkbox" id="movImprimirAuto"> Imprimir etiqueta A5 depois de confirmar</label>
+                <label class="check"><input type="checkbox" id="movImprimirAuto"> Imprimir etiqueta A5 com QR do artigo/lote depois de confirmar</label>
             </div>
             <div class="row">
                 <div class="form-group"><label for="movOrient">Orientação da etiqueta</label>
@@ -386,6 +391,7 @@
 <datalist id="listaCategorias"></datalist>
 <datalist id="listaFornecedores"></datalist>
 <datalist id="listaLocalizacoes"></datalist>
+<datalist id="listaLotesMovimento"></datalist>
 
 <!-- Área só usada na impressão -->
 <div id="areaImpressao"></div>
@@ -570,6 +576,7 @@
         const hist = await _supabase.from('movimentos').select('*').order('created_at', { ascending: false }).limit(2000);
         if (!hist.error) { cacheMov = hist.data || []; erroHistorico = ''; }
         renderTudo();
+        abrirArtigoDoQr();
     }
 
     async function carregarHistorico() {
@@ -869,10 +876,33 @@
         });
         return [...mapa.values()].filter(c => c.quantidade > 0.0000001).sort((a,b) => (a.lote || '').localeCompare(b.lote || '', 'pt-PT', {numeric:true}));
     }
+    function atualizarLotesMovimento() {
+        const a = artigoPorId(document.getElementById('movArtigo').value), lista = document.getElementById('listaLotesMovimento'), input = document.getElementById('movLote');
+        if (!lista || !input) return;
+        const saida = tipoMov() === 'saida' || tipoMov() === 'producao';
+        const lotes = a ? [...new Set(camadasStockArtigo(a.id).map(c => c.lote).filter(Boolean))].sort((x,y) => x.localeCompare(y, 'pt-PT', {numeric:true})) : [];
+        lista.innerHTML = lotes.map(l => `<option value="${esc(l)}"></option>`).join('');
+        input.readOnly = saida;
+        input.title = saida ? 'Nas saídas, selecione um lote existente no stock.' : '';
+        if (saida && input.value && !lotes.some(l => l.toLowerCase() === input.value.trim().toLowerCase())) input.value = '';
+    }
+    function validarLoteMovimento() {
+        const tipo = tipoMov(), a = artigoPorId(document.getElementById('movArtigo').value), lote = String(document.getElementById('movLote').value || '').trim();
+        if (!a || (tipo !== 'saida' && tipo !== 'producao')) return true;
+        const lotes = camadasStockArtigo(a.id).map(c => c.lote).filter(Boolean);
+        const ok = lotes.some(l => l.toLowerCase() === lote.toLowerCase());
+        if (!ok && lote) {
+            document.getElementById('movLote').value = '';
+            mostrarMensagem('Selecione um lote existente no stock deste artigo.', 'erro');
+            return false;
+        }
+        return ok || !lotes.length;
+    }
     function atualizarCamadasMovimento() {
         const box = document.getElementById('movCamadaBox'), sel = document.getElementById('movCamada'), a = artigoPorId(document.getElementById('movArtigo').value);
         const saida = tipoMov() === 'saida' || tipoMov() === 'producao';
         if (!box || !sel) return;
+        atualizarLotesMovimento();
         box.classList.toggle('visible', saida && !!a);
         if (!saida || !a) { sel.innerHTML = '<option value="">Selecione a origem do stock</option>'; return; }
         const anterior = sel.value, camadas = camadasStockArtigo(a.id);
@@ -891,6 +921,7 @@
         document.getElementById('movLocal').value = c.localizacao;
         const q = lerQtdMov();
         if (limpar && Number.isFinite(q) && q > c.quantidade) document.getElementById('movQtd').value = c.quantidade;
+        atualizarLotesMovimento();
         atualizarProjecaoMovimento();
     }
     function camadaMovimentoAtual(id) {
@@ -976,6 +1007,7 @@
         if (tipo === 'producao' && quantidadeGasta > quantidade) { mostrarMensagem('A quantidade gasta não pode ser superior à quantidade que sai do armazém.', 'erro'); return; }
         const prodDisponivel = stockProducaoArtigo(id);
         if ((retorno || consumo) && quantidade > prodDisponivel + 0.0000001) { mostrarMensagem(`O stock em Produção tem apenas ${fmt(prodDisponivel)} disponível.`, 'erro'); return; }
+        if ((tipo === 'saida' || tipo === 'producao') && !validarLoteMovimento()) return;
         if (tipo === 'saida' || tipo === 'producao') {
             const camadas = camadasStockArtigo(id), camada = camadaMovimentoAtual(id);
             if (camadas.length && !camada) { mostrarMensagem('Selecione o fornecedor, lote e localização de origem do stock.', 'erro'); return; }
@@ -1240,6 +1272,40 @@
     }
 
     /* ---------- ETIQUETAS ---------- */
+    function urlQrArtigo(a) {
+        try {
+            const u = new URL(window.location.href);
+            u.hash = 'movimentos';
+            u.search = '';
+            u.searchParams.set('artigo', String(a.id));
+            if (a.lote) u.searchParams.set('lote', String(a.lote));
+            return u.toString();
+        } catch (e) {
+            return `artigo:${a.id};lote:${a.lote || ''}`;
+        }
+    }
+    function desenharQRCodes(raiz) {
+        if (typeof QRCode === 'undefined') return;
+        raiz.querySelectorAll('canvas.qr-code').forEach(canvas => {
+            const valor = canvas.dataset.qr || '';
+            if (!valor) return;
+            QRCode.toCanvas(canvas, valor, { width: 180, margin: 1, errorCorrectionLevel: 'M' }, err => {
+                if (err) console.warn('QR indisponível', err);
+            });
+        });
+    }
+    function abrirArtigoDoQr() {
+        const params = new URLSearchParams(window.location.search), id = params.get('artigo');
+        if (!id || !sessaoAtual || !artigoPorId(id)) return;
+        const lote = params.get('lote') || '';
+        if (document.getElementById('movCat')) document.getElementById('movCat').value = '';
+        preencherSelectArtigos('movArtigo', 'movCat');
+        document.getElementById('movArtigo').value = String(id);
+        atualizarStockMovimento();
+        if (lote) document.getElementById('movLote').value = lote;
+        manterArtigoMov = true;
+        // A página já foi aberta em Movimentos pelo hash do QR; não recarregar os dados novamente.
+    }
     function htmlEtiqueta(a, opts) {
         const orient = opts.orientacao === 'retrato' ? 'retrato' : 'paisagem';
         const qtd = opts.quantidade != null ? opts.quantidade : (Number(a.stock_atual) || 0);
@@ -1262,7 +1328,10 @@
                 ${a.observacoes ? `<div class="full"><b>Obs.:</b> ${esc(a.observacoes)}</div>` : ''}
             </div>
             <div class="et-qtd">${rotuloQtd}: ${fmt(qtd)} ${esc(a.unidade || 'Un')}</div>
-            <div class="et-rodape"><svg class="codigo" data-codigo="${esc(a.id)}"></svg></div>
+            <div class="et-rodape">
+                <div class="qr-wrap"><canvas class="qr-code" data-qr="${esc(urlQrArtigo(a))}" aria-label="QR do artigo e lote"></canvas><span class="qr-legenda">Ler para abrir<br><b>artigo e lote</b></span></div>
+                <svg class="codigo" data-codigo="${esc(a.id)}"></svg>
+            </div>
         </div>`;
     }
 
@@ -1301,6 +1370,7 @@
             quantidade: Number.isFinite(q) ? q : null
         });
         desenharCodigos(alvo);
+        desenharQRCodes(alvo);
         // Reduz a pré-visualização para caber no ecrã
         const et = alvo.firstElementChild;
         const largura = alvo.parentElement.clientWidth - 28;
@@ -1331,6 +1401,7 @@
         const area = document.getElementById('areaImpressao');
         area.innerHTML = Array.from({ length: copias }, () => htmlEtiqueta(artigo, opts)).join('');
         desenharCodigos(area);
+        desenharQRCodes(area);
 
         // Pequena espera para o logotipo/código de barras ficarem desenhados
         setTimeout(() => window.print(), 350);
