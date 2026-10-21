@@ -104,6 +104,7 @@
     #tabelaListagem table.history-list th:nth-child(6) { width: 12%; }
     #tabelaListagem table.history-list th:nth-child(7), #tabelaListagem table.history-list th:nth-child(8) { width: 10%; }
     #tabelaListagem table.history-list th:nth-child(9) { width: 12%; }
+    #tabelaListagem table.history-list th:nth-child(10) { width: 8%; }
     /* A listagem de stock ajusta-se ao conteúdo e usa deslocamento horizontal quando necessário. */
     #tabelaListagem table.stock-list {
         table-layout: auto;
@@ -156,6 +157,13 @@
     .production-return-box.visible { display:block; }
     .tipo-retorno, .tipo-consumo { color:#b9770e; font-weight:bold; }
 
+    #editorMovimento { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.45); align-items:center; justify-content:center; padding:18px; }
+    #editorMovimento.visivel { display:flex; }
+    #editorMovimento .editor-card { width:min(100%, 680px); max-height:calc(100vh - 36px); overflow:auto; background:#fff; border-radius:10px; padding:20px; box-shadow:0 8px 30px rgba(0,0,0,.25); }
+    #editorMovimento .editor-topo { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    #editorMovimento .editor-topo h2 { margin:0; color:#2c3e50; font-size:20px; }
+    #editorMovimento .editor-meta { background:#f4f6f9; border-radius:6px; padding:10px 12px; margin-bottom:14px; color:#405568; }
+    #editorMovimento .editor-aviso { color:#8a5a00; background:#fff8e8; border:1px solid #e7c96b; border-radius:6px; padding:9px 11px; font-size:13px; margin-top:10px; }
     #appShell { display: none; }
     #appShell.autenticado { display: block; }
     #ecrãLogin { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: #f4f6f9; }
@@ -1274,7 +1282,7 @@
             const lista = listaHistoricoFiltrada();
             resumo.textContent = `${lista.length} movimento(s) apresentado(s) · últimos 500 registos`;
             if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem movimentos.</p>'; return; }
-            let h = '<div class="table-wrap"><table class="history-list"><tr><th>Data</th><th>Artigo</th><th>Categoria</th><th>Tipo</th><th>Qtd</th><th>Stock</th><th>Fornecedor</th><th>Lote</th><th>Localização</th></tr>';
+            let h = '<div class="table-wrap"><table class="history-list"><tr><th>Data</th><th>Artigo</th><th>Categoria</th><th>Tipo</th><th>Qtd</th><th>Stock</th><th>Fornecedor</th><th>Lote</th><th>Localização</th><th>Ações</th></tr>';
             lista.forEach(m => {
                 const q = Number(m.quantidade) || 0;
                 h += `<tr><td>${esc(new Date(m.created_at).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }))}</td>
@@ -1282,7 +1290,8 @@
                     <td class="tipo-${esc(m.tipo_operacao === 'producao' ? 'producao' : m.tipo)}">${esc(rotuloMov(m))}</td>
                     <td>${m.tipo === 'ajuste' && q > 0 ? '+' : ''}${fmt(q)}</td>
                     <td>${m.stock_antes == null ? '-' : fmt(m.stock_antes) + ' → ' + fmt(m.stock_depois)}</td>
-                    <td>${esc(m.fornecedor || '-')}</td><td>${esc(m.lote || '-')}</td><td>${esc(m.localizacao || '-')}</td></tr>`;
+                    <td>${esc(m.fornecedor || '-')}</td><td>${esc(m.lote || '-')}</td><td>${esc(m.localizacao || '-')}</td>
+                    <td style="white-space:nowrap"><button class="btn pequeno azul" onclick="abrirEditorMovimento('${esc(m.id)}')">Editar</button></td></tr>`;
             });
             div.innerHTML = h + '</table></div>';
             return;
@@ -1302,6 +1311,61 @@
                 <td>${htmlValoresCamada(a.id, 'fornecedor')}</td><td>${htmlValoresCamada(a.id, 'localizacao')}</td><td>${esc(a.observacoes || '-')}</td></tr>`;
         });
         div.innerHTML = h + '</table></div>';
+    }
+
+    function movimentoPorId(id) { return cacheMov.find(m => String(m.id) === String(id)); }
+    function abrirEditorMovimento(id) {
+        const m = movimentoPorId(id);
+        if (!m) { mostrarMensagem('Movimento não encontrado. Atualize a listagem.', 'erro'); return; }
+        document.getElementById('editorMovId').value = m.id;
+        document.getElementById('editorMovQtd').value = Number(m.quantidade) || 0;
+        document.getElementById('editorMovGasta').value = m.tipo_operacao === 'producao' ? (Number(m.quantidade_gasta) || 0) : '';
+        document.getElementById('editorMovFornecedor').value = m.fornecedor || '';
+        document.getElementById('editorMovLote').value = m.lote || '';
+        document.getElementById('editorMovLocal').value = m.localizacao || '';
+        document.getElementById('editorMovQtd').disabled = m.tipo === 'ajuste';
+        document.getElementById('editorMovGasta').disabled = m.tipo_operacao !== 'producao';
+        document.getElementById('editorMovMeta').innerHTML = `<b>${esc(m.artigo || '-')}</b> · ${esc(rotuloMov(m))} · ${m.created_at ? esc(new Date(m.created_at).toLocaleString('pt-PT')) : ''}`;
+        document.getElementById('editorMovAviso').textContent = m.tipo === 'ajuste'
+            ? 'Este é um ajuste de inventário. A quantidade do ajuste não altera o stock; para corrigir o stock, faça um novo ajuste no Inventário.'
+            : 'Ao guardar, o stock do artigo será recalculado com base em todos os movimentos. A data original do movimento será mantida.';
+        document.getElementById('editorMovimento').classList.add('visivel');
+    }
+    function fecharEditorMovimento() { document.getElementById('editorMovimento').classList.remove('visivel'); }
+    async function recalcularStockArtigo(id) {
+        const { data, error } = await _supabase.from('movimentos').select('*').eq('artigo_id', id).order('created_at', { ascending: true });
+        if (error) throw error;
+        let stock = 0;
+        (data || []).forEach(m => {
+            if (m.tipo_operacao === 'consumo_producao') return;
+            if (m.tipo === 'entrada') stock += Number(m.quantidade) || 0;
+            else if (m.tipo === 'saida' || m.tipo === 'producao') stock -= Number(m.quantidade) || 0;
+            else if (m.tipo === 'ajuste') stock = Number(m.stock_depois) || 0;
+        });
+        const { error: updateError } = await _supabase.from('artigos').update({ stock_atual: stock }).eq('id', id);
+        if (updateError) throw updateError;
+    }
+    async function guardarEdicaoMovimento() {
+        const btn = document.getElementById('btnGuardarMovEdit'), id = document.getElementById('editorMovId').value, m = movimentoPorId(id);
+        if (!m) return;
+        const qtdEl = document.getElementById('editorMovQtd'), qtd = parseFloat(String(qtdEl.value).replace(',', '.'));
+        const gasta = parseFloat(String(document.getElementById('editorMovGasta').value || '').replace(',', '.'));
+        if (m.tipo !== 'ajuste' && (!Number.isFinite(qtd) || qtd <= 0)) { mostrarMensagem('Indique uma quantidade válida superior a zero.', 'erro'); return; }
+        if (m.tipo_operacao === 'producao' && (!Number.isFinite(gasta) || gasta < 0 || gasta > qtd)) { mostrarMensagem('A quantidade gasta tem de ser válida e não pode ser superior à quantidade do movimento.', 'erro'); return; }
+        const dados = { fornecedor: document.getElementById('editorMovFornecedor').value.trim() || null, lote: document.getElementById('editorMovLote').value.trim() || null, localizacao: document.getElementById('editorMovLocal').value.trim() || null };
+        if (m.tipo !== 'ajuste') dados.quantidade = qtd;
+        if (m.tipo_operacao === 'producao') { dados.quantidade_gasta = gasta; dados.quantidade_producao = qtd - gasta; dados.previsao_sobra = qtd - gasta; }
+        btn.disabled = true;
+        try {
+            const { error } = await _supabase.from('movimentos').update(dados).eq('id', id);
+            if (error) throw error;
+            await recalcularStockArtigo(m.artigo_id);
+            fecharEditorMovimento();
+            mostrarMensagem('Movimento atualizado e stock recalculado.');
+            await carregarDados();
+            if (modoList() === 'historico') await carregarHistorico();
+        } catch (err) { console.error(err); mostrarMensagem('Erro ao editar movimento: ' + erroTexto(err, 'não foi possível guardar as alterações.'), 'erro'); }
+        finally { btn.disabled = false; }
     }
 
     function exportarCSV() {
@@ -1475,5 +1539,23 @@
     document.querySelectorAll('input[name=movimento]').forEach(x => x.addEventListener('change', atualizarPainelMovimento));
     _supabase.auth.getSession().then(({ data }) => atualizarInterfaceAuth(data.session));
 </script>
+    <div id="editorMovimento" role="dialog" aria-modal="true" aria-labelledby="tituloEditorMovimento">
+        <div class="editor-card">
+            <div class="editor-topo"><h2 id="tituloEditorMovimento">Editar movimento</h2><button class="btn pequeno cinza" onclick="fecharEditorMovimento()">Fechar</button></div>
+            <div id="editorMovMeta" class="editor-meta"></div>
+            <input type="hidden" id="editorMovId">
+            <div class="row">
+                <div class="form-group"><label for="editorMovQtd">Quantidade</label><input type="number" id="editorMovQtd" min="0" step="any"></div>
+                <div class="form-group"><label for="editorMovGasta">Quantidade gasta</label><input type="number" id="editorMovGasta" min="0" step="any"></div>
+            </div>
+            <div class="row">
+                <div class="form-group"><label for="editorMovFornecedor">Fornecedor</label><input type="text" id="editorMovFornecedor" maxlength="120"></div>
+                <div class="form-group"><label for="editorMovLote">Lote</label><input type="text" id="editorMovLote" maxlength="60"></div>
+                <div class="form-group"><label for="editorMovLocal">Localização</label><input type="text" id="editorMovLocal" maxlength="120"></div>
+            </div>
+            <div id="editorMovAviso" class="editor-aviso"></div>
+            <div class="acoes"><button class="btn" id="btnGuardarMovEdit" onclick="guardarEdicaoMovimento()">Guardar alterações</button><button class="btn cinza" onclick="fecharEditorMovimento()">Cancelar</button></div>
+        </div>
+    </div>
 </body>
 </html>
