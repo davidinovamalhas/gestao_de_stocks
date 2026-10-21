@@ -108,6 +108,15 @@
     #tabelaListagem table.stock-list th:nth-child(11), #tabelaListagem table.stock-list td:nth-child(11) { min-width: 130px; }
     #tabelaListagem table.stock-list td:nth-child(6), #tabelaListagem table.stock-list td:nth-child(7) { white-space: nowrap; }
     #tabelaListagem table.stock-list td:nth-child(8) .lot-list { min-width: 0; width: max-content; max-width: 100%; }
+    /* Stock armazém e Stock em Produção devem ter exatamente a mesma largura. */
+    #tabelaListagem table.stock-list th:nth-child(6), #tabelaListagem table.stock-list td:nth-child(6),
+    #tabelaListagem table.stock-list th:nth-child(7), #tabelaListagem table.stock-list td:nth-child(7) {
+        width: 110px !important;
+        min-width: 110px !important;
+        max-width: 110px !important;
+        box-sizing: border-box;
+    }
+    #tabelaListagem table.stock-list th:nth-child(7) { white-space: normal; }
     #tabelaListagem table.history-list th:nth-child(1) { width: 14%; }
     #tabelaListagem table.history-list th:nth-child(2) { width: 15%; }
     #tabelaListagem table.history-list th:nth-child(3) { width: 8%; }
