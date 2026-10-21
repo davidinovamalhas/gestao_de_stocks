@@ -68,11 +68,13 @@
     #tabelaArtigos table th:nth-child(3) { width: 6%; }
     #tabelaArtigos table th:nth-child(4) { width: 8%; }
     #tabelaArtigos table th:nth-child(5) { width: 19%; }
-    #tabelaArtigos table th:nth-child(6) { width: 15%; }
+    #tabelaArtigos table th:nth-child(6) { width: 18%; }
+    #tabelaArtigos table th:nth-child(7) { width: 15%; }
     #tabelaArtigos table th:nth-child(2), #tabelaArtigos table td:nth-child(2),
     #tabelaArtigos table th:nth-child(3), #tabelaArtigos table td:nth-child(3),
     #tabelaArtigos table th:nth-child(4), #tabelaArtigos table td:nth-child(4) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #tabelaArtigos table td:nth-child(5) { white-space: nowrap; }
+    #tabelaArtigos table td:nth-child(5), #tabelaArtigos table td:nth-child(6) { white-space: nowrap; }
+    #tabelaArtigos table td:nth-child(6) { white-space: normal; }
     #tabelaInventario table th:nth-child(1) { width: 22%; }
     #tabelaInventario table th:nth-child(2), #tabelaInventario table td:nth-child(2),
     #tabelaInventario table th:nth-child(4), #tabelaInventario table td:nth-child(4) { display: none; }
@@ -96,6 +98,13 @@
     #tabelaListagem table.stock-list th:nth-child(10), #tabelaListagem table.stock-list td:nth-child(10) { min-width: 130px; }
     #tabelaListagem table.stock-list td:nth-child(1), #tabelaListagem table.stock-list td:nth-child(7),
     #tabelaListagem table.stock-list td:nth-child(8), #tabelaListagem table.stock-list td:nth-child(9) { white-space: normal; overflow: visible; }
+    #tabelaListagem table.stock-list th:nth-child(5), #tabelaListagem table.stock-list td:nth-child(5) { min-width: 100px; }
+    #tabelaListagem table.stock-list th:nth-child(6), #tabelaListagem table.stock-list td:nth-child(6) { min-width: 115px; }
+    #tabelaListagem table.stock-list th:nth-child(7), #tabelaListagem table.stock-list td:nth-child(7) { min-width: 120px; }
+    #tabelaListagem table.stock-list th:nth-child(8), #tabelaListagem table.stock-list td:nth-child(8) { min-width: 360px; }
+    #tabelaListagem table.stock-list th:nth-child(9), #tabelaListagem table.stock-list td:nth-child(9) { min-width: 180px; }
+    #tabelaListagem table.stock-list th:nth-child(10), #tabelaListagem table.stock-list td:nth-child(10) { min-width: 180px; }
+    #tabelaListagem table.stock-list th:nth-child(11), #tabelaListagem table.stock-list td:nth-child(11) { min-width: 130px; }
     #tabelaListagem table.history-list th:nth-child(1) { width: 14%; }
     #tabelaListagem table.history-list th:nth-child(2) { width: 15%; }
     #tabelaListagem table.history-list th:nth-child(3) { width: 8%; }
@@ -768,6 +777,16 @@
             .some(v => String(v ?? '').toLowerCase().includes(t)));
     }
 
+    function stockTotalArtigo(a) {
+        return (Number(a.stock_atual) || 0) + Math.max(0, stockProducaoArtigo(a.id));
+    }
+    function htmlLocalizacaoStock(a) {
+        const armazem = Number(a.stock_atual) || 0, producao = Math.max(0, stockProducaoArtigo(a.id)), partes = [];
+        if (armazem > 0.0000001) partes.push(`<span class="tag">Armazém: ${fmt(armazem)} ${esc(a.unidade || 'Un')}</span>`);
+        if (producao > 0.0000001) partes.push(`<span class="tag">Produção: ${fmt(producao)} ${esc(a.unidade || 'Un')}</span>`);
+        return partes.length ? partes.join(' ') : '<span class="nota">Sem stock</span>';
+    }
+
     /* ---------- ARTIGOS ---------- */
     function renderArtigos() {
         const lista = filtrar(filtroCat(cacheStock, document.getElementById('artFiltroCat').value), document.getElementById('pesqArtigos').value);
@@ -778,13 +797,14 @@
                 : '<p class="alerta-vazio">Ainda não há artigos. Use “Inserir novo artigo”.</p>';
             return;
         }
-        let h = '<div class="table-wrap"><table class="stock-list"><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock atual</th><th></th></tr>';
+        let h = '<div class="table-wrap"><table><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock total</th><th>Localização</th><th>Ações</th></tr>';
         lista.forEach(a => {
-            const p = Number(a.preco) || 0, s = Number(a.stock_atual) || 0, zero = s <= 0;
+            const p = Number(a.preco) || 0, armazem = Number(a.stock_atual) || 0, prod = Math.max(0, stockProducaoArtigo(a.id)), total = armazem + prod, zero = total <= 0;
             const lotesComStock = lotesDoArtigo(a.id).length;
             h += `<tr ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td>
                 <td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
-                <td>${fmt(s)} (${lotesComStock} ${lotesComStock === 1 ? 'lote' : 'lotes'})${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td>
+                <td>${fmt(total)} (${lotesComStock} ${lotesComStock === 1 ? 'lote' : 'lotes'})${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td>
+                <td>${htmlLocalizacaoStock(a)}</td>
                 <td style="white-space:nowrap">
                     <button class="btn pequeno azul" onclick="editarArtigo('${esc(a.id)}')">Editar</button>
                     <button class="btn pequeno" onclick="irMovimento('${esc(a.id)}')">Movimento</button>
@@ -1302,12 +1322,12 @@
         resumo.textContent = `${lista.length} artigo(s) apresentado(s) · ${cacheStock.length} no total · ${esgot} esgotado(s)`;
         if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem resultados.</p>'; return; }
 
-        let h = '<div class="table-wrap"><table class="stock-list"><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock armazém</th><th>Stock em<br>Produção</th><th>Lotes</th><th>Fornecedores</th><th>Localização</th><th>Observações</th></tr>';
+        let h = '<div class="table-wrap"><table class="stock-list"><tr><th>Artigo</th><th>Categoria</th><th>Und</th><th>Preço</th><th>Stock total</th><th>Stock armazém</th><th>Stock em<br>Produção</th><th>Lotes</th><th>Fornecedores</th><th>Localização</th><th>Observações</th></tr>';
         lista.forEach(a => {
-            const s = Number(a.stock_atual) || 0, p = Number(a.preco) || 0, zero = s <= 0;
+            const s = Number(a.stock_atual) || 0, prod = Math.max(0, stockProducaoArtigo(a.id)), total = s + prod, p = Number(a.preco) || 0, zero = total <= 0;
             h += `<tr ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td>
                 <td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
-                <td>${fmt(s)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td><td>${fmt(stockProducaoArtigo(a.id))} ${esc(a.unidade || 'Un')}</td><td>${htmlLotes(a.id, 'listDataInicio', 'listDataFim')}</td>
+                <td>${fmt(total)}${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td><td>${fmt(s)} ${esc(a.unidade || 'Un')}</td><td>${fmt(prod)} ${esc(a.unidade || 'Un')}</td><td>${htmlLotes(a.id, 'listDataInicio', 'listDataFim')}</td>
                 <td>${htmlValoresCamada(a.id, 'fornecedor')}</td><td>${htmlValoresCamada(a.id, 'localizacao')}</td><td>${esc(a.observacoes || '-')}</td></tr>`;
         });
         div.innerHTML = h + '</table></div>';
