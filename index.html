@@ -532,6 +532,7 @@
 
     let cacheStock = [];      // artigos
     let cacheMov = [];        // histórico de movimentos
+    let movimentosHistoricoVisiveis = [];
     let erroHistorico = '';
     let contagens = {};       // contagens de inventário (id -> valor)
     let mensagemTimer = null;
@@ -1132,16 +1133,17 @@
                     let registo = { artigo_id: String(id), artigo: atual.artigo, categoria: atual.categoria || null,
                         tipo: tipo === 'producao' ? 'saida' : tipo, quantidade, stock_antes: stockAntes, stock_depois: stockDepois,
                         fornecedor: c.fornecedor, lote: c.lote, localizacao: c.localizacao, ...extra };
-                    let { error: eM } = await _supabase.from('movimentos').insert(registo);
-                    if (eM && tipo === 'producao') {
-                        // Compatibilidade com bases que ainda não têm as colunas opcionais.
-                        delete registo.ordem_producao; delete registo.quantidade_gasta; delete registo.quantidade_producao; delete registo.previsao_sobra; delete registo.localizacao_producao; delete registo.tipo_operacao;
-                        ({ error: eM } = await _supabase.from('movimentos').insert(registo));
+                    const { error: eM } = await _supabase.from('movimentos').insert(registo);
+                    if (eM) {
+                        console.error(eM);
+                        // Não deixar stock atualizado sem o respetivo histórico.
+                        await _supabase.from('artigos').update({ stock_atual: stockAntes }).eq('id', id).eq('stock_atual', stockDepois);
+                        const detalhe = /column .* does not exist|schema cache|Could not find/i.test(String(eM.message || ''))
+                            ? ' Execute no Supabase o SQL de atualização das colunas de produção.' : '';
+                        throw new Error('Não foi possível gravar o movimento: ' + (eM.message || 'erro desconhecido') + detalhe);
                     }
-                    let aviso = '';
-                    if (eM) { console.error(eM); aviso = ' ⚠️ O stock foi atualizado, mas o histórico não foi gravado.'; }
 
-                    mostrarMensagem(`${retorno ? 'Retorno da produção' : consumo ? 'Consumo direto da produção' : tipo === 'entrada' ? 'Entrada' : tipo === 'producao' ? 'Saída para produção' : 'Saída'} registada: "${nomeCompleto(atual)}" ${fmt(stockAntes)} → ${fmt(stockDepois)}.${aviso}`, aviso ? 'erro' : 'ok');
+                    mostrarMensagem(`${retorno ? 'Retorno da produção' : consumo ? 'Consumo direto da produção' : tipo === 'entrada' ? 'Entrada' : tipo === 'producao' ? 'Saída para produção' : 'Saída'} registada: "${nomeCompleto(atual)}" ${fmt(stockAntes)} → ${fmt(stockDepois)}.`);
 
                     const imprimir = document.getElementById('movImprimirAuto').checked;
                     const dadosEtiqueta = { ...atual, stock_atual: stockDepois, fornecedor: c.fornecedor, lote: c.lote, armazem: c.localizacao };
@@ -1300,10 +1302,11 @@
         if (modoList() === 'historico') {
             if (erroHistorico) { resumo.textContent = ''; div.innerHTML = `<p class="alerta-vazio">${esc(erroHistorico)}</p>`; return; }
             const lista = listaHistoricoFiltrada();
+            movimentosHistoricoVisiveis = lista;
             resumo.textContent = `${lista.length} movimento(s) apresentado(s) · últimos 500 registos`;
             if (!lista.length) { div.innerHTML = '<p class="alerta-vazio">Sem movimentos.</p>'; return; }
             let h = '<div class="table-wrap"><table class="history-list"><tr><th>Data</th><th>Artigo</th><th>Categoria</th><th>Tipo</th><th>Qtd</th><th>Stock</th><th>Fornecedor</th><th>Lote</th><th>Localização</th><th>Ações</th></tr>';
-            lista.forEach(m => {
+            lista.forEach((m, indiceMov) => {
                 const q = Number(m.quantidade) || 0;
                 h += `<tr><td>${esc(new Date(m.created_at).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }))}</td>
                     <td><b>${esc(m.artigo || '-')}</b></td><td>${m.categoria ? `<span class="tag">${esc(m.categoria)}</span>` : '-'}</td>
@@ -1311,7 +1314,7 @@
                     <td>${m.tipo === 'ajuste' && q > 0 ? '+' : ''}${fmt(q)}</td>
                     <td>${m.stock_antes == null ? '-' : fmt(m.stock_antes) + ' → ' + fmt(m.stock_depois)}</td>
                     <td>${esc(m.fornecedor || '-')}</td><td>${esc(m.lote || '-')}</td><td>${esc(m.localizacao || '-')}</td>
-                    <td style="white-space:nowrap"><button class="btn pequeno azul" onclick="abrirEditorMovimento('${esc(m.id)}')">Editar</button></td></tr>`;
+                    <td style="white-space:nowrap"><button class="btn pequeno azul" onclick="abrirEditorMovimentoPorIndice(${indiceMov})">Editar</button></td></tr>`;
             });
             div.innerHTML = h + '</table></div>';
             return;
@@ -1333,6 +1336,11 @@
         div.innerHTML = h + '</table></div>';
     }
 
+    function abrirEditorMovimentoPorIndice(indice) {
+        const m = movimentosHistoricoVisiveis[Number(indice)];
+        if (!m) { mostrarMensagem('Movimento não encontrado. Atualize o histórico e tente novamente.', 'erro'); return; }
+        abrirEditorMovimentoObjeto(m);
+    }
     function movimentoPorId(id) { return cacheMov.find(m => String(m.id) === String(id)); }
     function tipoEditorDoMovimento(m) {
         if (m.tipo_operacao === 'producao') return 'producao';
@@ -1357,7 +1365,10 @@
     function abrirEditorMovimento(id) {
         const m = movimentoPorId(id);
         if (!m) { mostrarMensagem('Movimento não encontrado. Atualize a listagem.', 'erro'); return; }
-        document.getElementById('editorMovId').value = m.id;
+        abrirEditorMovimentoObjeto(m);
+    }
+    function abrirEditorMovimentoObjeto(m) {
+        document.getElementById('editorMovId').value = m.id || '';
         document.getElementById('editorMovTipo').value = tipoEditorDoMovimento(m);
         document.getElementById('editorMovQtd').value = Number(m.quantidade) || 0;
         document.getElementById('editorMovGasta').value = m.tipo_operacao === 'producao' ? (Number(m.quantidade_gasta) || 0) : '';
@@ -1407,7 +1418,10 @@
         dados.localizacao_producao = ['producao', 'retorno_producao', 'consumo_producao'].includes(tipoEditado) ? 'Produção' : null;
         btn.disabled = true;
         try {
-            const { error } = await _supabase.from('movimentos').update(dados).eq('id', id);
+            let pedido = _supabase.from('movimentos').update(dados);
+            if (m.id) pedido = pedido.eq('id', m.id);
+            else pedido = pedido.eq('artigo_id', m.artigo_id).eq('created_at', m.created_at).eq('quantidade', m.quantidade).eq('tipo', m.tipo).limit(1);
+            const { error } = await pedido;
             if (error) throw error;
             await recalcularStockArtigo(m.artigo_id);
             fecharEditorMovimento();
