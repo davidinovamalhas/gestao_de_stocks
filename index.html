@@ -41,7 +41,8 @@
     .btn:hover { background: #27ae60; }
     .btn:disabled { background: #95a5a6; cursor: not-allowed; }
     .btn.azul { background: #2980b9; } .btn.azul:hover { background: #21618c; }
-    .btn.cinza { background: #7f8c8d; } .btn.cinza:hover { background: #626d6e; }
+    .btn.cinza { background: #7f8c8d; }
+    .btn.vermelho { background: #c0392b; } .btn.cinza:hover { background: #626d6e; }
     .btn.pequeno { padding: 6px 10px; font-size: 13px; }
     .btn.grande { font-size: 17px; padding: 14px 22px; }
     .acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
@@ -1338,7 +1339,7 @@
                     <td>${m.tipo === 'ajuste' && q > 0 ? '+' : ''}${fmt(q)}</td>
                     <td>${m.stock_antes == null ? '-' : fmt(m.stock_antes) + ' → ' + fmt(m.stock_depois)}</td>
                     <td>${esc(m.fornecedor || '-')}</td><td>${esc(m.lote || '-')}</td><td>${esc(m.localizacao || '-')}</td>
-                    <td style="white-space:nowrap"><button class="btn pequeno azul" onclick="abrirEditorMovimentoPorIndice(${indiceMov})">Editar</button></td></tr>`;
+                    <td style="white-space:nowrap"><button class="btn pequeno azul" onclick="abrirEditorMovimentoPorIndice(${indiceMov})">Editar</button> <button class="btn pequeno vermelho" onclick="eliminarMovimentoPorIndice(${indiceMov})">Eliminar</button></td></tr>`;
             });
             div.innerHTML = h + '</table></div>';
             return;
@@ -1360,6 +1361,29 @@
         div.innerHTML = h + '</table></div>';
     }
 
+    async function eliminarMovimentoPorIndice(indice) {
+        const m = movimentosHistoricoVisiveis[Number(indice)];
+        if (!m) { mostrarMensagem('Movimento não encontrado. Atualize o histórico e tente novamente.', 'erro'); return; }
+        const tipo = rotuloMov(m);
+        const q = fmt(Number(m.quantidade) || 0);
+        const artigo = m.artigo || 'este artigo';
+        const confirmado = window.confirm(`Eliminar este movimento?\n\n${artigo}\n${tipo} · ${q}\n\nO stock será recalculado depois da eliminação.`);
+        if (!confirmado) return;
+        try {
+            let pedido = _supabase.from('movimentos').delete();
+            if (m.id) pedido = pedido.eq('id', m.id);
+            else pedido = pedido.eq('artigo_id', m.artigo_id).eq('created_at', m.created_at).eq('quantidade', m.quantidade).eq('tipo', m.tipo).limit(1);
+            const { error } = await pedido;
+            if (error) throw error;
+            await recalcularStockArtigo(m.artigo_id);
+            mostrarMensagem(`Movimento eliminado. Stock de "${artigo}" recalculado.`);
+            await carregarDados();
+            if (modoList() === 'historico') await carregarHistorico();
+        } catch (err) {
+            console.error(err);
+            mostrarMensagem('Erro ao eliminar movimento: ' + erroTexto(err, 'não foi possível eliminar. Confirme a política DELETE no Supabase.'), 'erro');
+        }
+    }
     function abrirEditorMovimentoPorIndice(indice) {
         const m = movimentosHistoricoVisiveis[Number(indice)];
         if (!m) { mostrarMensagem('Movimento não encontrado. Atualize o histórico e tente novamente.', 'erro'); return; }
