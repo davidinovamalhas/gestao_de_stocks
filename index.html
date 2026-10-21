@@ -100,12 +100,14 @@
     #tabelaListagem table.stock-list td:nth-child(1), #tabelaListagem table.stock-list td:nth-child(7),
     #tabelaListagem table.stock-list td:nth-child(8), #tabelaListagem table.stock-list td:nth-child(9) { white-space: normal; overflow: visible; }
     #tabelaListagem table.stock-list th:nth-child(5), #tabelaListagem table.stock-list td:nth-child(5) { min-width: 100px; }
-    #tabelaListagem table.stock-list th:nth-child(6), #tabelaListagem table.stock-list td:nth-child(6) { min-width: 115px; }
-    #tabelaListagem table.stock-list th:nth-child(7), #tabelaListagem table.stock-list td:nth-child(7) { min-width: 120px; }
-    #tabelaListagem table.stock-list th:nth-child(8), #tabelaListagem table.stock-list td:nth-child(8) { min-width: 360px; }
+    #tabelaListagem table.stock-list th:nth-child(6), #tabelaListagem table.stock-list td:nth-child(6) { min-width: 110px; width: 110px; }
+    #tabelaListagem table.stock-list th:nth-child(7), #tabelaListagem table.stock-list td:nth-child(7) { min-width: 110px; width: 110px; }
+    #tabelaListagem table.stock-list th:nth-child(8), #tabelaListagem table.stock-list td:nth-child(8) { min-width: 250px; width: 250px; }
     #tabelaListagem table.stock-list th:nth-child(9), #tabelaListagem table.stock-list td:nth-child(9) { min-width: 180px; }
     #tabelaListagem table.stock-list th:nth-child(10), #tabelaListagem table.stock-list td:nth-child(10) { min-width: 180px; }
     #tabelaListagem table.stock-list th:nth-child(11), #tabelaListagem table.stock-list td:nth-child(11) { min-width: 130px; }
+    #tabelaListagem table.stock-list td:nth-child(6), #tabelaListagem table.stock-list td:nth-child(7) { white-space: nowrap; }
+    #tabelaListagem table.stock-list td:nth-child(8) .lot-list { min-width: 0; width: max-content; max-width: 100%; }
     #tabelaListagem table.history-list th:nth-child(1) { width: 14%; }
     #tabelaListagem table.history-list th:nth-child(2) { width: 15%; }
     #tabelaListagem table.history-list th:nth-child(3) { width: 8%; }
@@ -158,8 +160,8 @@
     .production-box { display:none; background:#f7effb; border:1px solid #d7b9e4; border-radius:8px; padding:14px; margin:4px 0 16px; }
     .production-box.visible { display:block; }
     .date-filter { background:#f7f9fb; border:1px solid #dde3ea; border-radius:8px; padding:12px; margin:10px 0 14px; }
-    .lot-list { display:flex; flex-wrap:wrap; gap:5px; min-width:180px; max-width:100%; }
-    .lot-list .tag { white-space:normal; line-height:1.25; }
+    .lot-list { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:180px; max-width:100%; }
+    .lot-list .tag { white-space:normal; line-height:1.25; max-width:100%; }
     .lot-list .tag { background:#fff4d6; color:#7d5b00; border-color:#e7c96b; }
     .camada-box { display:none; background:#eef7ee; border:1px solid #b7d9b7; border-radius:8px; padding:12px; margin:4px 0 16px; }
     .camada-box.visible { display:block; }
