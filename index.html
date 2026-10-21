@@ -157,7 +157,8 @@
     .production-box { display:none; background:#f7effb; border:1px solid #d7b9e4; border-radius:8px; padding:14px; margin:4px 0 16px; }
     .production-box.visible { display:block; }
     .date-filter { background:#f7f9fb; border:1px solid #dde3ea; border-radius:8px; padding:12px; margin:10px 0 14px; }
-    .lot-list { display:flex; flex-wrap:wrap; gap:5px; min-width:180px; }
+    .lot-list { display:flex; flex-wrap:wrap; gap:5px; min-width:180px; max-width:100%; }
+    .lot-list .tag { white-space:normal; line-height:1.25; }
     .lot-list .tag { background:#fff4d6; color:#7d5b00; border-color:#e7c96b; }
     .camada-box { display:none; background:#eef7ee; border:1px solid #b7d9b7; border-radius:8px; padding:12px; margin:4px 0 16px; }
     .camada-box.visible { display:block; }
@@ -932,12 +933,30 @@
         movimentosDoArtigo(id, iniId, fimId).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(m => {
             const lote = (m.lote || 'Sem lote').trim() || 'Sem lote';
             const q = Number(m.quantidade) || 0;
-            if (!mapa[lote]) mapa[lote] = 0;
-            if (m.tipo === 'entrada') mapa[lote] += q;
-            else if (m.tipo === 'saida' || m.tipo === 'producao') mapa[lote] -= q;
-            else if (m.tipo === 'ajuste' && m.lote) mapa[lote] = Number(m.stock_depois) || 0;
+            if (!mapa[lote]) mapa[lote] = { armazem: 0, producao: 0 };
+            const camada = mapa[lote];
+            const op = m.tipo_operacao || '';
+            if (op === 'producao') {
+                // Sai do armazém, mas a sobra fica no mesmo lote em Produção.
+                camada.armazem -= q;
+                camada.producao += Number(m.quantidade_producao) || Math.max(0, q - (Number(m.quantidade_gasta) || 0));
+            } else if (op === 'retorno_producao') {
+                camada.producao -= Number(m.quantidade_producao) || q;
+                camada.armazem += q;
+            } else if (op === 'consumo_producao') {
+                camada.producao -= Number(m.quantidade_producao) || q;
+            } else if (m.tipo === 'entrada') {
+                camada.armazem += q;
+            } else if (m.tipo === 'saida') {
+                camada.armazem -= q;
+            } else if (m.tipo === 'ajuste' && m.lote) {
+                camada.armazem = Number(m.stock_depois) || 0;
+            }
         });
-        return Object.entries(mapa).filter(([,q]) => q > 0).map(([lote,q]) => ({ lote, quantidade:q }));
+        return Object.entries(mapa)
+            .map(([lote, valores]) => ({ lote, armazem: Math.max(0, valores.armazem), producao: Math.max(0, valores.producao), quantidade: Math.max(0, valores.armazem) + Math.max(0, valores.producao) }))
+            .filter(x => x.quantidade > 0.0000001)
+            .sort((a,b) => a.lote.localeCompare(b.lote, 'pt-PT', {numeric:true}));
     }
     function htmlValoresCamada(id, campo) {
         const valores = [...new Set(camadasStockArtigo(id).map(c => c[campo]).filter(Boolean))];
@@ -945,7 +964,12 @@
     }
     function htmlLotes(id, ini='invDataInicio', fim='invDataFim') {
         const ls = lotesDoArtigo(id, ini, fim);
-        return ls.length ? '<div class="lot-list">' + ls.map(x => `<span class="tag">${esc(x.lote)}: ${fmt(x.quantidade)}</span>`).join('') + '</div>' : '<span class="nota">Sem lotes registados</span>';
+        return ls.length ? '<div class="lot-list">' + ls.map(x => {
+            const locais = [];
+            if (x.armazem > 0.0000001) locais.push(`Armazém: ${fmt(x.armazem)}`);
+            if (x.producao > 0.0000001) locais.push(`Produção: ${fmt(x.producao)}`);
+            return `<span class="tag"><b>${esc(x.lote)}</b>: ${fmt(x.quantidade)} · ${esc(locais.join(' · '))}</span>`;
+        }).join('') + '</div>' : '<span class="nota">Sem lotes registados</span>';
     }
     function chaveCamada(fornecedor, lote, localizacao) {
         return [fornecedor, lote, localizacao].map(v => String(v || '').trim().toLowerCase()).join('||');
