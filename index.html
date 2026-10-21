@@ -1314,21 +1314,41 @@
     }
 
     function movimentoPorId(id) { return cacheMov.find(m => String(m.id) === String(id)); }
+    function tipoEditorDoMovimento(m) {
+        if (m.tipo_operacao === 'producao') return 'producao';
+        if (m.tipo_operacao === 'retorno_producao') return 'retorno_producao';
+        if (m.tipo_operacao === 'consumo_producao') return 'consumo_producao';
+        return m.tipo || 'entrada';
+    }
+    function atualizarEditorTipoMovimento() {
+        const tipo = document.getElementById('editorMovTipo').value;
+        document.getElementById('editorMovGasta').disabled = tipo !== 'producao';
+        document.getElementById('editorMovQtd').disabled = tipo === 'ajuste';
+        document.getElementById('editorMovAviso').textContent = tipo === 'ajuste'
+            ? 'Ajustes de inventário usam o valor Stock depois já registado. Para corrigir o stock, recomenda-se fazer um novo ajuste no menu Inventário.'
+            : tipo === 'producao'
+                ? 'A quantidade sai do armazém. A diferença entre a quantidade saída e a quantidade gasta fica em Produção.'
+                : tipo === 'retorno_producao'
+                    ? 'A quantidade é retirada do stock em Produção e devolvida ao armazém.'
+                    : tipo === 'consumo_producao'
+                        ? 'A quantidade é consumida diretamente do stock em Produção.'
+                        : 'Ao guardar, o stock do artigo será recalculado com base em todos os movimentos.';
+    }
     function abrirEditorMovimento(id) {
         const m = movimentoPorId(id);
         if (!m) { mostrarMensagem('Movimento não encontrado. Atualize a listagem.', 'erro'); return; }
         document.getElementById('editorMovId').value = m.id;
+        document.getElementById('editorMovTipo').value = tipoEditorDoMovimento(m);
         document.getElementById('editorMovQtd').value = Number(m.quantidade) || 0;
         document.getElementById('editorMovGasta').value = m.tipo_operacao === 'producao' ? (Number(m.quantidade_gasta) || 0) : '';
         document.getElementById('editorMovFornecedor').value = m.fornecedor || '';
         document.getElementById('editorMovLote').value = m.lote || '';
         document.getElementById('editorMovLocal').value = m.localizacao || '';
-        document.getElementById('editorMovQtd').disabled = m.tipo === 'ajuste';
-        document.getElementById('editorMovGasta').disabled = m.tipo_operacao !== 'producao';
         document.getElementById('editorMovMeta').innerHTML = `<b>${esc(m.artigo || '-')}</b> · ${esc(rotuloMov(m))} · ${m.created_at ? esc(new Date(m.created_at).toLocaleString('pt-PT')) : ''}`;
         document.getElementById('editorMovAviso').textContent = m.tipo === 'ajuste'
             ? 'Este é um ajuste de inventário. A quantidade do ajuste não altera o stock; para corrigir o stock, faça um novo ajuste no Inventário.'
             : 'Ao guardar, o stock do artigo será recalculado com base em todos os movimentos. A data original do movimento será mantida.';
+        atualizarEditorTipoMovimento();
         document.getElementById('editorMovimento').classList.add('visivel');
     }
     function fecharEditorMovimento() { document.getElementById('editorMovimento').classList.remove('visivel'); }
@@ -1351,10 +1371,20 @@
         const qtdEl = document.getElementById('editorMovQtd'), qtd = parseFloat(String(qtdEl.value).replace(',', '.'));
         const gasta = parseFloat(String(document.getElementById('editorMovGasta').value || '').replace(',', '.'));
         if (m.tipo !== 'ajuste' && (!Number.isFinite(qtd) || qtd <= 0)) { mostrarMensagem('Indique uma quantidade válida superior a zero.', 'erro'); return; }
-        if (m.tipo_operacao === 'producao' && (!Number.isFinite(gasta) || gasta < 0 || gasta > qtd)) { mostrarMensagem('A quantidade gasta tem de ser válida e não pode ser superior à quantidade do movimento.', 'erro'); return; }
-        const dados = { fornecedor: document.getElementById('editorMovFornecedor').value.trim() || null, lote: document.getElementById('editorMovLote').value.trim() || null, localizacao: document.getElementById('editorMovLocal').value.trim() || null };
-        if (m.tipo !== 'ajuste') dados.quantidade = qtd;
-        if (m.tipo_operacao === 'producao') { dados.quantidade_gasta = gasta; dados.quantidade_producao = qtd - gasta; dados.previsao_sobra = qtd - gasta; }
+        const tipoEditado = document.getElementById('editorMovTipo').value;
+        if (tipoEditado === 'producao' && (!Number.isFinite(gasta) || gasta < 0 || gasta > qtd)) { mostrarMensagem('A quantidade gasta tem de ser válida e não pode ser superior à quantidade do movimento.', 'erro'); return; }
+        const dados = {
+            fornecedor: document.getElementById('editorMovFornecedor').value.trim() || null,
+            lote: document.getElementById('editorMovLote').value.trim() || null,
+            localizacao: document.getElementById('editorMovLocal').value.trim() || null,
+            tipo: tipoEditado === 'retorno_producao' ? 'entrada' : tipoEditado === 'producao' || tipoEditado === 'consumo_producao' ? 'saida' : tipoEditado
+        };
+        if (tipoEditado !== 'ajuste') dados.quantidade = qtd;
+        dados.tipo_operacao = ['producao', 'retorno_producao', 'consumo_producao'].includes(tipoEditado) ? tipoEditado : null;
+        dados.quantidade_gasta = tipoEditado === 'producao' ? gasta : null;
+        dados.quantidade_producao = tipoEditado === 'producao' ? qtd - gasta : ['retorno_producao', 'consumo_producao'].includes(tipoEditado) ? qtd : null;
+        dados.previsao_sobra = tipoEditado === 'producao' ? qtd - gasta : null;
+        dados.localizacao_producao = ['producao', 'retorno_producao', 'consumo_producao'].includes(tipoEditado) ? 'Produção' : null;
         btn.disabled = true;
         try {
             const { error } = await _supabase.from('movimentos').update(dados).eq('id', id);
@@ -1544,6 +1574,16 @@
             <div class="editor-topo"><h2 id="tituloEditorMovimento">Editar movimento</h2><button class="btn pequeno cinza" onclick="fecharEditorMovimento()">Fechar</button></div>
             <div id="editorMovMeta" class="editor-meta"></div>
             <input type="hidden" id="editorMovId">
+            <div class="form-group"><label for="editorMovTipo">Tipo de movimento</label>
+                <select id="editorMovTipo" onchange="atualizarEditorTipoMovimento()">
+                    <option value="entrada">Entrada</option>
+                    <option value="saida">Saída</option>
+                    <option value="producao">Saída para produção</option>
+                    <option value="retorno_producao">Retorno da produção</option>
+                    <option value="consumo_producao">Consumo direto em produção</option>
+                    <option value="ajuste">Ajuste de inventário</option>
+                </select>
+            </div>
             <div class="row">
                 <div class="form-group"><label for="editorMovQtd">Quantidade</label><input type="number" id="editorMovQtd" min="0" step="any"></div>
                 <div class="form-group"><label for="editorMovGasta">Quantidade gasta</label><input type="number" id="editorMovGasta" min="0" step="any"></div>
