@@ -60,7 +60,7 @@
     .info-cat { font-size: 13px; color: #1e6b8f; min-height: 18px; }
 
     /* Tabelas */
-    .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap { display:block; width:100%; max-width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
     table { width: 100%; max-width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; table-layout: fixed; }
     th, td { border: 1px solid #ddd; padding: 8px 7px; text-align: left; overflow-wrap: anywhere; vertical-align: top; }
     td .lot-list { min-width: 0; }
@@ -108,6 +108,10 @@
     #tabelaListagem table.stock-list th:nth-child(11), #tabelaListagem table.stock-list td:nth-child(11) { min-width: 130px; }
     #tabelaListagem table.stock-list td:nth-child(6), #tabelaListagem table.stock-list td:nth-child(7) { white-space: nowrap; }
     #tabelaListagem table.stock-list td:nth-child(8) .lot-list { min-width: 0; width: max-content; max-width: 100%; }
+    #tabelaListagem table.stock-list td:nth-child(9) .stock-values,
+    #tabelaListagem table.stock-list td:nth-child(10) .stock-values { width: 100%; }
+    #tabelaListagem table.stock-list th:nth-child(9), #tabelaListagem table.stock-list td:nth-child(9) { min-width: 150px; width: 150px; }
+    #tabelaListagem table.stock-list th:nth-child(10), #tabelaListagem table.stock-list td:nth-child(10) { min-width: 150px; width: 150px; }
     /* Stock armazém e Stock em Produção devem ter exatamente a mesma largura. */
     #tabelaListagem table.stock-list th:nth-child(6), #tabelaListagem table.stock-list td:nth-child(6),
     #tabelaListagem table.stock-list th:nth-child(7), #tabelaListagem table.stock-list td:nth-child(7) {
@@ -172,6 +176,8 @@
     .lot-list { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:180px; max-width:100%; }
     .lot-list .tag { white-space:normal; line-height:1.25; max-width:100%; }
     .lot-list .tag { background:#fff4d6; color:#7d5b00; border-color:#e7c96b; }
+    .stock-values { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; max-width:100%; }
+    .stock-values .tag { white-space:normal; max-width:100%; line-height:1.25; }
     .camada-box { display:none; background:#eef7ee; border:1px solid #b7d9b7; border-radius:8px; padding:12px; margin:4px 0 16px; }
     .camada-box.visible { display:block; }
     .camada-box select { border-color:#8bc48b; }
@@ -231,7 +237,7 @@
     @media (min-width: 1100px) {
         .app { padding-left: 8px; padding-right: 8px; }
         .card { padding: 22px 24px; }
-        .table-wrap { overflow-x: visible; }
+        .table-wrap { width: 100%; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
         #tabelaInventario table, #tabelaListagem table { font-size: 13px; }
         #tabelaInventario th, #tabelaInventario td, #tabelaListagem th, #tabelaListagem td { padding: 8px 6px; }
     }
@@ -972,7 +978,7 @@
     }
     function htmlValoresCamada(id, campo) {
         const valores = [...new Set(camadasStockArtigo(id).map(c => c[campo]).filter(Boolean))];
-        return valores.length ? valores.map(v => `<span class="tag">${esc(v)}</span>`).join(' ') : '<span class="nota">-</span>';
+        return valores.length ? `<div class="stock-values">${valores.map(v => `<span class="tag">${esc(v)}</span>`).join('')}</div>` : '<span class="nota">-</span>';
     }
     function htmlLotes(id, ini='invDataInicio', fim='invDataFim') {
         const ls = lotesDoArtigo(id, ini, fim);
