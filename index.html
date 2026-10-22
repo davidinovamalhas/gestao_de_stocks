@@ -347,6 +347,7 @@
         <div class="topbar"><button class="btn-voltar" onclick="ir('inicio')">← Menu</button><span class="titulo">🔄 Movimentos</span></div>
         <div class="card">
             <h2>Registar entrada ou saída</h2>
+            <p class="nota">As quantidades aceitam uma casa decimal, por exemplo: <b>202.5</b> ou <b>202,5</b>.</p>
             <div class="row">
                 <div class="form-group"><label for="movCat">Categoria</label>
                     <select id="movCat" onchange="preencherSelectArtigos('movArtigo','movCat')"></select></div>
@@ -363,7 +364,7 @@
                         <label><input type="radio" name="movimento" value="consumo_producao" onchange="atualizarPainelMovimento()"> 🟠 Consumir stock em produção</label>
                     </div>
                 </div>
-                <div class="form-group"><label id="movQtdLabel" for="movQtd">Quantidade a sair do armazém</label><input type="number" id="movQtd" min="0" step="any" value="1" oninput="atualizarProjecaoMovimento()"></div>
+                <div class="form-group"><label id="movQtdLabel" for="movQtd">Quantidade a sair do armazém</label><input type="number" id="movQtd" min="0" step="0.1" value="1" oninput="atualizarProjecaoMovimento()"></div>
                 <div class="form-group"><label>Stock disponível (orientação)</label><div id="movStockAtual" class="stock-protegido" aria-readonly="true">Selecione um artigo<small>Campo protegido — não editável</small></div></div>
             </div>
             <div class="production-return-box" id="painelRetornoProducao">
@@ -377,7 +378,7 @@
             <div class="production-box" id="painelProducao">
                 <div class="row">
                     <div class="form-group"><label for="movEncomenda">Encomenda / ordem de produção</label><input type="text" id="movEncomenda" maxlength="80" placeholder="Ex.: ENC-2026-014"></div>
-                    <div class="form-group"><label for="movQtdGasta">Quantidade a gastar na encomenda</label><input type="number" id="movQtdGasta" min="0" step="any" value="1" oninput="atualizarProjecaoMovimento()"></div>
+                    <div class="form-group"><label for="movQtdGasta">Quantidade a gastar na encomenda</label><input type="number" id="movQtdGasta" min="0" step="0.1" value="1" oninput="atualizarProjecaoMovimento()"></div>
                     <div class="form-group"><label>Diferença mantida em produção</label><div id="movSobraAuto" class="stock-protegido" aria-readonly="true">Selecione um artigo<small>Calculada: sai do armazém − gasta na encomenda</small></div></div>
                 </div>
                 <div id="movProjecao" class="nota"></div><div class="nota"><b>Regra:</b> o stock do armazém diminui pela quantidade que sai; a diferença entre saída e consumo fica em Produção.</div>
@@ -1091,8 +1092,12 @@
         atualizarCamadasMovimento();
         atualizarProjecaoMovimento();
     }
+    function decimalUmaCasa(valor) {
+        const n = parseFloat(String(valor ?? '').replace(',', '.'));
+        return Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 10) / 10 : NaN;
+    }
     function lerQtdGasta() {
-        return parseFloat(String(document.getElementById('movQtdGasta')?.value || '').replace(',', '.'));
+        return decimalUmaCasa(document.getElementById('movQtdGasta')?.value || '');
     }
     function stockProducaoArtigo(id) {
         return cacheMov.filter(m => String(m.artigo_id) === String(id) && ['producao','retorno_producao','consumo_producao'].includes(m.tipo_operacao))
@@ -1143,7 +1148,7 @@
 
     /* ---------- MOVIMENTOS ---------- */
     function lerQtdMov() {
-        return parseFloat(String(document.getElementById('movQtd').value).replace(',', '.'));
+        return decimalUmaCasa(document.getElementById('movQtd').value);
     }
     function tipoMov() { return document.querySelector('input[name="movimento"]:checked').value; }
     function camposMov() {
@@ -1498,8 +1503,8 @@
     async function guardarEdicaoMovimento() {
         const btn = document.getElementById('btnGuardarMovEdit'), id = document.getElementById('editorMovId').value, m = movimentoPorId(id);
         if (!m) return;
-        const qtdEl = document.getElementById('editorMovQtd'), qtd = parseFloat(String(qtdEl.value).replace(',', '.'));
-        const gasta = parseFloat(String(document.getElementById('editorMovGasta').value || '').replace(',', '.'));
+        const qtdEl = document.getElementById('editorMovQtd'), qtd = decimalUmaCasa(qtdEl.value);
+        const gasta = decimalUmaCasa(document.getElementById('editorMovGasta').value || '');
         if (m.tipo !== 'ajuste' && (!Number.isFinite(qtd) || qtd <= 0)) { mostrarMensagem('Indique uma quantidade válida superior a zero.', 'erro'); return; }
         const tipoEditado = document.getElementById('editorMovTipo').value;
         if (tipoEditado === 'producao' && (!Number.isFinite(gasta) || gasta < 0 || gasta > qtd)) { mostrarMensagem('A quantidade gasta tem de ser válida e não pode ser superior à quantidade do movimento.', 'erro'); return; }
@@ -1719,8 +1724,8 @@
                 </select>
             </div>
             <div class="row">
-                <div class="form-group"><label for="editorMovQtd">Quantidade</label><input type="number" id="editorMovQtd" min="0" step="any"></div>
-                <div class="form-group"><label for="editorMovGasta">Quantidade gasta</label><input type="number" id="editorMovGasta" min="0" step="any"></div>
+                <div class="form-group"><label for="editorMovQtd">Quantidade</label><input type="number" id="editorMovQtd" min="0" step="0.1"></div>
+                <div class="form-group"><label for="editorMovGasta">Quantidade gasta</label><input type="number" id="editorMovGasta" min="0" step="0.1"></div>
             </div>
             <div class="row">
                 <div class="form-group"><label for="editorMovFornecedor">Fornecedor</label><input type="text" id="editorMovFornecedor" maxlength="120"></div>
