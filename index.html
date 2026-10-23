@@ -70,7 +70,7 @@
     #tabelaArtigos table th:nth-child(4) { width: 8%; }
     #tabelaArtigos table th:nth-child(5) { width: 19%; }
     #tabelaArtigos table th:nth-child(6) { width: 18%; }
-    #tabelaArtigos table th:nth-child(7) { width: 15%; }
+    #tabelaArtigos table th:nth-child(7) { width: 25%; }
     #tabelaArtigos table th:nth-child(2), #tabelaArtigos table td:nth-child(2),
     #tabelaArtigos table th:nth-child(3), #tabelaArtigos table td:nth-child(3),
     #tabelaArtigos table th:nth-child(4), #tabelaArtigos table td:nth-child(4) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -178,6 +178,8 @@
     .lot-list .tag { background:#fff4d6; color:#7d5b00; border-color:#e7c96b; }
     .stock-values { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; max-width:100%; }
     .stock-values .tag { white-space:normal; max-width:100%; line-height:1.25; }
+    #tabelaArtigos .stock-values { align-items:flex-start; }
+    #tabelaArtigos td:last-child { white-space:nowrap; }
     .camada-box { display:none; background:#eef7ee; border:1px solid #b7d9b7; border-radius:8px; padding:12px; margin:4px 0 16px; }
     .camada-box.visible { display:block; }
     .camada-box select { border-color:#8bc48b; }
@@ -294,6 +296,7 @@
             <button class="menu-item" onclick="ir('movimentos')"><span class="ico">🔄</span>Movimentos<small>Entradas e saídas</small></button>
             <button class="menu-item" onclick="ir('inventario')"><span class="ico">📋</span>Inventário<small>Contagem e acerto de stock</small></button>
             <button class="menu-item" onclick="ir('listagens')"><span class="ico">📊</span>Listagens<small>Stock, histórico e exportação</small></button>
+            <button class="menu-item" onclick="ir('historico-artigo')"><span class="ico">🧾</span>Histórico por artigo<small>Todos os movimentos de um artigo</small></button>
             <button class="menu-item" onclick="ir('etiquetas')"><span class="ico">🖨️</span>Etiquetas<small>Imprimir etiquetas A5</small></button>
         </div>
     </section>
@@ -342,6 +345,20 @@
         </div>
     </section>
 
+    <!-- ============ HISTÓRICO POR ARTIGO ============ -->
+    <section id="pg-historico-artigo" class="pagina">
+        <div class="topbar"><button class="btn-voltar" onclick="ir('artigos')">← Artigos</button><span class="titulo">🧾 Histórico por artigo</span></div>
+        <div class="card">
+            <h2>Histórico completo do artigo</h2>
+            <p class="nota">Selecione qualquer artigo, mesmo que esteja sem stock.</p>
+            <div class="row">
+                <div class="form-group"><label for="historicoArtigoSelect">Artigo</label><select id="historicoArtigoSelect" onchange="renderHistoricoArtigo()"><option value="">Selecione um artigo</option></select></div>
+            </div>
+            <div id="historicoArtigoResumo" class="nota"></div>
+            <div id="tabelaHistoricoArtigo"></div>
+        </div>
+    </section>
+
     <!-- ============ MOVIMENTOS ============ -->
     <section id="pg-movimentos" class="pagina">
         <div class="topbar"><button class="btn-voltar" onclick="ir('inicio')">← Menu</button><span class="titulo">🔄 Movimentos</span></div>
@@ -378,9 +395,11 @@
             <div class="production-box" id="painelProducao">
                 <div class="row">
                     <div class="form-group"><label for="movEncomenda">Encomenda / ordem de produção</label><input type="text" id="movEncomenda" maxlength="80" placeholder="Ex.: ENC-2026-014"></div>
+                    <div class="form-group"><label for="movMaquina">Máquina</label><input type="text" id="movMaquina" maxlength="120" placeholder="Ex.: Teares 02"></div>
                     <div class="form-group"><label for="movQtdGasta">Quantidade a gastar na encomenda</label><input type="number" id="movQtdGasta" min="0" step="0.1" value="1" oninput="atualizarProjecaoMovimento()"></div>
                     <div class="form-group"><label>Diferença mantida em produção</label><div id="movSobraAuto" class="stock-protegido" aria-readonly="true">Selecione um artigo<small>Calculada: sai do armazém − gasta na encomenda</small></div></div>
                 </div>
+                <div class="form-group"><label for="movObsProducao">Observações da produção</label><textarea id="movObsProducao" rows="2" maxlength="500" placeholder="Outras indicações sobre a produção"></textarea></div>
                 <div id="movProjecao" class="nota"></div><div class="nota"><b>Regra:</b> o stock do armazém diminui pela quantidade que sai; a diferença entre saída e consumo fica em Produção.</div>
             </div>
             <div class="row">
@@ -695,7 +714,7 @@
     function renderTudo() {
         preencherCategorias();
         preencherSugestoes();
-        renderArtigos(); renderListagem(); renderInventario();
+        renderArtigos(); renderListagem(); renderInventario(); preencherHistoricoArtigo();
         preencherSelects();
         etPreencherSeVazio();
         atualizarPreview();
@@ -834,6 +853,7 @@
                 <td style="white-space:nowrap">
                     <button class="btn pequeno azul" onclick="editarArtigo('${esc(a.id)}')">Editar</button>
                     <button class="btn pequeno" onclick="irMovimento('${esc(a.id)}')">Movimento</button>
+                    <button class="btn pequeno cinza" onclick="abrirHistoricoArtigo('${esc(a.id)}')">Histórico</button>
                 </td></tr>`;
         });
         div.innerHTML = h + '</table></div>';
@@ -964,7 +984,7 @@
                 // Sai do armazém, mas a sobra fica no mesmo lote em Produção.
                 camada.armazem -= q;
                 camada.producao += Number(m.quantidade_producao) || Math.max(0, q - (Number(m.quantidade_gasta) || 0));
-            } else if (op === 'retorno_producao') {
+            } else if (op === 'retorno_producao' || op === 'entrada_producao') {
                 camada.producao -= Number(m.quantidade_producao) || q;
                 camada.armazem += q;
             } else if (op === 'consumo_producao') {
@@ -1014,7 +1034,7 @@
         const mapa = new Map();
         cacheMov.filter(m => String(m.artigo_id) === String(id)).slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at)).forEach(m => {
             const op = m.tipo_operacao || '', fornecedor = String(m.fornecedor || '').trim(), lote = String(m.lote || '').trim(), localizacao = String(m.localizacao_producao || 'Produção').trim() || 'Produção';
-            if (!['producao','retorno_producao','consumo_producao'].includes(op)) return;
+            if (!['producao','retorno_producao','entrada_producao','consumo_producao'].includes(op)) return;
             const chave = chaveCamada(fornecedor, lote, localizacao);
             if (!mapa.has(chave)) mapa.set(chave, { chave, fornecedor, lote, localizacao, quantidade: 0 });
             const camada = mapa.get(chave);
@@ -1100,7 +1120,7 @@
         return decimalUmaCasa(document.getElementById('movQtdGasta')?.value || '');
     }
     function stockProducaoArtigo(id) {
-        return cacheMov.filter(m => String(m.artigo_id) === String(id) && ['producao','retorno_producao','consumo_producao'].includes(m.tipo_operacao))
+        return cacheMov.filter(m => String(m.artigo_id) === String(id) && ['producao','retorno_producao','entrada_producao','consumo_producao'].includes(m.tipo_operacao))
             .reduce((total, m) => {
                 if (m.tipo_operacao === 'producao') return total + (Number(m.quantidade_producao) || 0);
                 return total - (Number(m.quantidade_producao) || Number(m.quantidade) || 0);
@@ -1209,7 +1229,7 @@
                 if (eU) throw eU;
 
                 if (upd && upd.length > 0) {
-                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), quantidade_gasta: quantidadeGasta, quantidade_producao: quantidade - quantidadeGasta, previsao_sobra: quantidade - quantidadeGasta, localizacao_producao: 'Produção', tipo_operacao: 'producao' } : (retorno || entradaProducao) ? { tipo: 'entrada', quantidade_producao: entradaProducao ? (esgotarProducao ? (camadaMovimentoAtual(id)?.quantidade || quantidade) : quantidade) : quantidade, localizacao_producao: 'Produção', tipo_operacao: 'retorno_producao' } : consumo ? { tipo: 'saida', quantidade_gasta: quantidade, quantidade_producao: quantidade, localizacao_producao: 'Produção', tipo_operacao: 'consumo_producao' } : {};
+                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), quantidade_gasta: quantidadeGasta, quantidade_producao: quantidade - quantidadeGasta, previsao_sobra: quantidade - quantidadeGasta, localizacao_producao: 'Produção', tipo_operacao: 'producao', maquina_producao: valOuNull('movMaquina'), observacoes: valOuNull('movObsProducao') } : (retorno || entradaProducao) ? { tipo: 'entrada', quantidade_producao: entradaProducao ? (esgotarProducao ? (camadaMovimentoAtual(id)?.quantidade || quantidade) : quantidade) : quantidade, localizacao_producao: 'Produção', tipo_operacao: entradaProducao ? 'entrada_producao' : 'retorno_producao' } : consumo ? { tipo: 'saida', quantidade_gasta: quantidade, quantidade_producao: quantidade, localizacao_producao: 'Produção', tipo_operacao: 'consumo_producao' } : {};
                     let registo = { artigo_id: String(id), artigo: atual.artigo, categoria: atual.categoria || null,
                         tipo: tipo === 'producao' ? 'saida' : tipo, quantidade, stock_antes: stockAntes, stock_depois: stockDepois,
                         fornecedor: c.fornecedor, lote: c.lote, localizacao: c.localizacao, ...extra };
@@ -1233,6 +1253,8 @@
                     document.getElementById('movEsgotarProducao').checked = false;
                     document.getElementById('movLote').value = '';
                     document.getElementById('movEncomenda').value = '';
+                    document.getElementById('movMaquina').value = '';
+                    document.getElementById('movObsProducao').value = '';
                     document.getElementById('movArtigo').value = '';
                     atualizarCamadasMovimento();
                     await carregarDados();
@@ -1373,8 +1395,34 @@
     }
 
     const ROTULO_TIPO = { entrada: 'Entrada', saida: 'Saída', ajuste: 'Ajuste' };
-    const ROTULO_OPERACAO = { retorno_producao: 'Retorno da produção', consumo_producao: 'Consumo direto da produção' };
+    const ROTULO_OPERACAO = { retorno_producao: 'Retorno da produção', entrada_producao: 'Entrada da produção', consumo_producao: 'Consumo direto da produção' };
     function rotuloMov(m) { return ROTULO_OPERACAO[m.tipo_operacao] || (m.tipo_operacao === 'producao' ? 'Saída para produção' : (ROTULO_TIPO[m.tipo] || m.tipo)); }
+
+    function preencherHistoricoArtigo() {
+        const select = document.getElementById('historicoArtigoSelect');
+        if (!select) return;
+        const atual = select.value;
+        select.innerHTML = '<option value="">Selecione um artigo</option>' + cacheStock.slice().sort(cmpArtigos).map(a => `<option value="${esc(a.id)}">${esc(a.artigo)}${a.categoria ? ' · ' + esc(a.categoria) : ''}</option>`).join('');
+        if (cacheStock.some(a => String(a.id) === String(atual))) select.value = atual;
+        renderHistoricoArtigo();
+    }
+    function abrirHistoricoArtigo(id) {
+        ir('historico-artigo');
+        const select = document.getElementById('historicoArtigoSelect');
+        if (select) { select.value = String(id); renderHistoricoArtigo(); }
+    }
+    function renderHistoricoArtigo() {
+        const select = document.getElementById('historicoArtigoSelect'), div = document.getElementById('tabelaHistoricoArtigo'), resumo = document.getElementById('historicoArtigoResumo');
+        if (!select || !div || !resumo) return;
+        const id = select.value;
+        if (!id) { resumo.textContent = ''; div.innerHTML = '<p class="alerta-vazio">Selecione um artigo para ver o histórico.</p>'; return; }
+        const artigo = artigoPorId(id), movimentos = cacheMov.filter(m => String(m.artigo_id) === String(id)).slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+        resumo.textContent = `${movimentos.length} movimento(s) registado(s) · artigo: ${artigo?.artigo || '-'}`;
+        if (!movimentos.length) { div.innerHTML = '<p class="alerta-vazio">Este artigo ainda não tem movimentos.</p>'; return; }
+        let h = '<div class="table-wrap"><table class="history-list"><tr><th>Data</th><th>Tipo de movimento</th><th>Quantidade</th><th>Lote</th><th>Fornecedor</th><th>Máquina</th><th>Encomenda</th><th>Observações</th></tr>';
+        movimentos.forEach(m => { h += `<tr><td>${esc(new Date(m.created_at).toLocaleString('pt-PT', {dateStyle:'short', timeStyle:'short'}))}</td><td class="tipo-${esc(m.tipo_operacao === 'producao' ? 'producao' : m.tipo)}">${esc(rotuloMov(m))}</td><td>${fmt(m.quantidade)} ${esc(artigo?.unidade || '')}</td><td>${esc(m.lote || '-')}</td><td>${esc(m.fornecedor || '-')}</td><td>${esc(m.maquina_producao || '-')}</td><td>${esc(m.ordem_producao || '-')}</td><td>${esc(m.observacoes || '-')}</td></tr>`; });
+        div.innerHTML = h + '</table></div>';
+    }
 
     function renderListagem() {
         const div = document.getElementById('tabelaListagem');
@@ -1516,6 +1564,7 @@
         };
         if (tipoEditado !== 'ajuste') dados.quantidade = qtd;
         dados.tipo_operacao = ['producao', 'retorno_producao', 'entrada_producao', 'consumo_producao'].includes(tipoEditado) ? tipoEditado : null;
+        if (tipoEditado === 'producao') { dados.maquina_producao = null; dados.observacoes = null; }
         dados.quantidade_gasta = tipoEditado === 'producao' ? gasta : null;
         dados.quantidade_producao = tipoEditado === 'producao' ? qtd - gasta : ['retorno_producao', 'entrada_producao', 'consumo_producao'].includes(tipoEditado) ? qtd : null;
         dados.previsao_sobra = tipoEditado === 'producao' ? qtd - gasta : null;
