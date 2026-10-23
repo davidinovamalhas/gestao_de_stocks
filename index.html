@@ -130,6 +130,14 @@
     #tabelaListagem table.history-list th:nth-child(7), #tabelaListagem table.history-list th:nth-child(8) { width: 10%; }
     #tabelaListagem table.history-list th:nth-child(9) { width: 12%; }
     #tabelaListagem table.history-list th:nth-child(10) { width: 8%; }
+    /* Histórico de movimentos: dar prioridade aos botões de Ações. */
+    #tabelaListagem table.history-list th:nth-child(9), #tabelaListagem table.history-list td:nth-child(9) {
+        width: 8%; min-width: 90px; max-width: 130px;
+    }
+    #tabelaListagem table.history-list th:nth-child(10), #tabelaListagem table.history-list td:nth-child(10) {
+        width: 16%; min-width: 190px; white-space: nowrap;
+    }
+    #tabelaListagem table.history-list td:nth-child(9) { overflow-wrap:anywhere; }
     /* A listagem de stock ajusta-se ao conteúdo e usa deslocamento horizontal quando necessário. */
     #tabelaListagem table.stock-list {
         table-layout: auto;
@@ -390,8 +398,12 @@
                 <div class="nota">Ao confirmar, retira a quantidade do stock em Produção e lança-a novamente no stock do armazém.</div>
             </div>
             <div class="production-box" id="painelEntradaProducao">
+                <div class="row">
+                    <div class="form-group"><label for="movEntradaMaquina">Máquina de origem</label><input type="text" id="movEntradaMaquina" maxlength="120" placeholder="Ex.: Teares 02"></div>
+                    <div class="form-group"><label for="movEntradaEncomenda">Encomenda / ordem de produção</label><input type="text" id="movEntradaEncomenda" maxlength="80" placeholder="Ex.: ENC-2026-014"></div>
+                </div>
                 <label class="check"><input type="checkbox" id="movEsgotarProducao" onchange="atualizarProjecaoMovimento()"> Esgotar o stock deste lote em Produção (fica a 0)</label>
-                <div class="nota">Sem esta opção, só é retirada da Produção a quantidade colocada no armazém e o restante continua em Produção.</div>
+                <div class="nota">Indique a máquina e a encomenda de onde veio o fio. Sem a opção de esgotar, só é retirada da Produção a quantidade colocada no armazém e o restante continua em Produção.</div>
             </div>
             <div class="production-box" id="painelProducao">
                 <div class="row">
@@ -1231,7 +1243,7 @@
                 if (eU) throw eU;
 
                 if (upd && upd.length > 0) {
-                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), quantidade_gasta: quantidadeGasta, quantidade_producao: quantidade - quantidadeGasta, previsao_sobra: quantidade - quantidadeGasta, localizacao_producao: 'Produção', tipo_operacao: 'producao', maquina_producao: valOuNull('movMaquina'), observacoes: valOuNull('movObsProducao') } : (retorno || entradaProducao) ? { tipo: 'entrada', quantidade_producao: entradaProducao ? (esgotarProducao ? (camadaMovimentoAtual(id)?.quantidade || quantidade) : quantidade) : quantidade, localizacao_producao: 'Produção', tipo_operacao: entradaProducao ? 'entrada_producao' : 'retorno_producao' } : consumo ? { tipo: 'saida', quantidade_gasta: quantidade, quantidade_producao: quantidade, localizacao_producao: 'Produção', tipo_operacao: 'consumo_producao' } : {};
+                    const extra = tipo === 'producao' ? { tipo: 'saida', ordem_producao: valOuNull('movEncomenda'), quantidade_gasta: quantidadeGasta, quantidade_producao: quantidade - quantidadeGasta, previsao_sobra: quantidade - quantidadeGasta, localizacao_producao: 'Produção', tipo_operacao: 'producao', maquina_producao: valOuNull('movMaquina'), observacoes: valOuNull('movObsProducao') } : (retorno || entradaProducao) ? { tipo: 'entrada', quantidade_producao: entradaProducao ? (esgotarProducao ? (camadaMovimentoAtual(id)?.quantidade || quantidade) : quantidade) : quantidade, localizacao_producao: 'Produção', tipo_operacao: entradaProducao ? 'entrada_producao' : 'retorno_producao', maquina_producao: entradaProducao ? valOuNull('movEntradaMaquina') : null, ordem_producao: entradaProducao ? valOuNull('movEntradaEncomenda') : null } : consumo ? { tipo: 'saida', quantidade_gasta: quantidade, quantidade_producao: quantidade, localizacao_producao: 'Produção', tipo_operacao: 'consumo_producao' } : {};
                     let registo = { artigo_id: String(id), artigo: atual.artigo, categoria: atual.categoria || null,
                         tipo: tipo === 'producao' ? 'saida' : tipo, quantidade, stock_antes: stockAntes, stock_depois: stockDepois,
                         fornecedor: c.fornecedor, lote: c.lote, localizacao: c.localizacao, ...extra };
@@ -1257,6 +1269,8 @@
                     document.getElementById('movEncomenda').value = '';
                     document.getElementById('movMaquina').value = '';
                     document.getElementById('movObsProducao').value = '';
+                    document.getElementById('movEntradaMaquina').value = '';
+                    document.getElementById('movEntradaEncomenda').value = '';
                     document.getElementById('movArtigo').value = '';
                     atualizarCamadasMovimento();
                     await carregarDados();
