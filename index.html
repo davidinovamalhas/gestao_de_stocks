@@ -188,6 +188,8 @@
     .stock-values .tag { white-space:normal; max-width:100%; line-height:1.25; }
     #tabelaArtigos .stock-values { align-items:flex-start; }
     #tabelaArtigos td:last-child { white-space:nowrap; }
+    #tabelaArtigos tr.linha-qr-destino { outline: 3px solid #f1c40f; outline-offset: -3px; background: #fff8cf !important; }
+
     .camada-box { display:none; background:#eef7ee; border:1px solid #b7d9b7; border-radius:8px; padding:12px; margin:4px 0 16px; }
     .camada-box.visible { display:block; }
     .camada-box select { border-color:#8bc48b; }
@@ -860,7 +862,7 @@
         lista.forEach(a => {
             const p = Number(a.preco) || 0, armazem = Number(a.stock_atual) || 0, prod = Math.max(0, stockProducaoArtigo(a.id)), total = armazem + prod, zero = total <= 0;
             const lotesComStock = lotesDoArtigo(a.id).length;
-            h += `<tr ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td>
+            h += `<tr id="linha-artigo-${esc(a.id)}" ${zero ? 'class="stock-zero"' : ''}><td><b>${esc(a.artigo)}</b></td><td>${tagCat(a)}</td><td>${esc(a.unidade || 'Un')}</td>
                 <td>${p > 0 ? p.toFixed(2) + '€' : '-'}</td>
                 <td>${fmt(total)} (${lotesComStock} ${lotesComStock === 1 ? 'lote' : 'lotes'})${zero ? ' <span class="badge-zero">ESGOTADO</span>' : ''}</td>
                 <td>${htmlLocalizacaoStock(a)}</td>
@@ -1631,7 +1633,7 @@
     function urlQrArtigo(a) {
         try {
             const u = new URL(window.location.href);
-            u.hash = 'movimentos';
+            u.hash = 'artigos';
             u.search = '';
             u.searchParams.set('artigo', String(a.id));
             if (a.lote) u.searchParams.set('lote', String(a.lote));
@@ -1653,14 +1655,12 @@
     function abrirArtigoDoQr() {
         const params = new URLSearchParams(window.location.search), id = params.get('artigo');
         if (!id || !sessaoAtual || !artigoPorId(id)) return;
-        const lote = params.get('lote') || '';
-        if (document.getElementById('movCat')) document.getElementById('movCat').value = '';
-        preencherSelectArtigos('movArtigo', 'movCat');
-        document.getElementById('movArtigo').value = String(id);
-        atualizarStockMovimento();
-        if (lote) document.getElementById('movLote').value = lote;
-        manterArtigoMov = true;
-        // A página já foi aberta em Movimentos pelo hash do QR; não recarregar os dados novamente.
+        const linha = document.getElementById('linha-artigo-' + String(id));
+        if (linha) {
+            linha.classList.add('linha-qr-destino');
+            linha.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => linha.classList.remove('linha-qr-destino'), 4500);
+        }
     }
     function htmlEtiqueta(a, opts) {
         const orient = opts.orientacao === 'retrato' ? 'retrato' : 'paisagem';
@@ -1685,7 +1685,7 @@
             </div>
             <div class="et-qtd">${rotuloQtd}: ${fmt(qtd)} ${esc(a.unidade || 'Un')}</div>
             <div class="et-rodape">
-                <div class="qr-wrap"><canvas class="qr-code" data-qr="${esc(urlQrArtigo(a))}" aria-label="QR do artigo e lote"></canvas><span class="qr-legenda">Ler para abrir<br><b>artigo e lote</b></span></div>
+                <div class="qr-wrap"><canvas class="qr-code" data-qr="${esc(urlQrArtigo(a))}" aria-label="QR do artigo e lote"></canvas><span class="qr-legenda">Ler para abrir<br><b>linha do artigo</b></span></div>
                 <svg class="codigo" data-codigo="${esc(a.id)}"></svg>
             </div>
         </div>`;
