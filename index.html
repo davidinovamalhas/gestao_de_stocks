@@ -237,6 +237,7 @@
     #areaImpressao { display: none; }
     /* Em monitores largos, usar toda a área disponível; em telemóveis, permitir deslocação apenas quando necessário. */
     @media (min-width: 1100px) {
+        .menu-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .app { padding-left: 8px; padding-right: 8px; }
         .card { padding: 22px 24px; }
         .table-wrap { width: 100%; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
@@ -580,7 +581,7 @@
     let erroHistorico = '';
     let contagens = {};       // contagens de inventário (id -> valor)
     let mensagemTimer = null;
-    const PAGINAS = ['inicio', 'artigos', 'movimentos', 'inventario', 'listagens', 'etiquetas'];
+    const PAGINAS = ['inicio', 'artigos', 'movimentos', 'inventario', 'listagens', 'historico-artigo', 'etiquetas'];
     const colator = new Intl.Collator('pt', { numeric: true, sensitivity: 'base' });
     const SEM_CAT = '__sem__';
 
@@ -652,6 +653,7 @@
 
     /* ---------- Navegação ---------- */
     let manterArtigoMov = false;   // true quando se vem do botão "Movimento" de um artigo
+    let historicoArtigoPendente = '';
     function ir(pagina, guardarHistorico = true) {
         if (!PAGINAS.includes(pagina)) pagina = 'inicio';
         if (guardarHistorico) {
@@ -1401,15 +1403,17 @@
     function preencherHistoricoArtigo() {
         const select = document.getElementById('historicoArtigoSelect');
         if (!select) return;
-        const atual = select.value;
+        const atual = historicoArtigoPendente || select.value;
         select.innerHTML = '<option value="">Selecione um artigo</option>' + cacheStock.slice().sort(cmpArtigos).map(a => `<option value="${esc(a.id)}">${esc(a.artigo)}${a.categoria ? ' · ' + esc(a.categoria) : ''}</option>`).join('');
         if (cacheStock.some(a => String(a.id) === String(atual))) select.value = atual;
+        historicoArtigoPendente = '';
         renderHistoricoArtigo();
     }
     function abrirHistoricoArtigo(id) {
+        historicoArtigoPendente = String(id || '');
         ir('historico-artigo');
         const select = document.getElementById('historicoArtigoSelect');
-        if (select) { select.value = String(id); renderHistoricoArtigo(); }
+        if (select && [...select.options].some(o => o.value === String(id))) { select.value = String(id); historicoArtigoPendente = ''; renderHistoricoArtigo(); }
     }
     function renderHistoricoArtigo() {
         const select = document.getElementById('historicoArtigoSelect'), div = document.getElementById('tabelaHistoricoArtigo'), resumo = document.getElementById('historicoArtigoResumo');
